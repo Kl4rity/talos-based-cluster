@@ -4,11 +4,6 @@ deployment:
   kind: Deployment
   replicas: 1
 
-# Create a default IngressClass for Traefik
-ingressClass:
-  enabled: true
-  isDefaultClass: true
-
 # Service configuration for bare-metal environment
 service:
   enabled: true
@@ -18,11 +13,16 @@ service:
 api:
   dashboard: true
 
-# Providers
+# Providers - Gateway API enabled
 providers:
-  kubernetesIngress:
-    namespaces: []
-    ingressClass: "traefik"
+  kubernetesGateway: {}
+
+# Gateway API Configuration
+gatewayClass:
+  enabled: true
+
+gateway:
+  enabled: true
 
 # Static configuration
 additionalArguments:
