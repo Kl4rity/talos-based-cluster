@@ -1,0 +1,17 @@
+helmDefaults:
+  wait: true
+  timeout: 600
+  atomic: true
+
+repositories:
+  - name: traefik
+    url: https://helm.traefik.io/traefik
+
+releases:
+  - name: traefik
+    chart: traefik/traefik
+    namespace: traefik
+    createNamespace: true
+    version: "32.1.0"
+    values:
+      - ./values/traefik.yaml
