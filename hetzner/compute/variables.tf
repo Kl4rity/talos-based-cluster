@@ -18,7 +18,7 @@ variable "control_plane_config" {
   })
   description = "Configuration for control plane servers"
   default = {
-    server_type = "cx21"
+    server_type = "cx23"
     labels = {
       type = "controlplane"
     }

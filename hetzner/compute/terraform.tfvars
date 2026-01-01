@@ -1,6 +1,6 @@
 # Control plane configuration - matching original create-control-plane.sh script
 control_plane_config = {
-  server_type = "cx21"
+  server_type = "cx23"
   labels = {
     type = "controlplane"
   }
