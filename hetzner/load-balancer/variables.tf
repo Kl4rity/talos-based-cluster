@@ -48,8 +48,50 @@ variable "service_protocol" {
   default     = "tcp"
 }
 
-variable "target_label_selector" {
+variable "controlplane_target_label_selector" {
   type        = string
-  description = "Label selector for load balancer targets"
+  description = "Label selector for controlplane load balancer targets"
   default     = "type=controlplane"
+}
+
+variable "traefik_target_label_selector" {
+  type        = string
+  description = "Label selector for Traefik load balancer targets"
+  default     = "app.kubernetes.io/name=traefik"
+}
+
+variable "http_listen_port" {
+  type        = number
+  description = "Port the load balancer listens on for HTTP traffic"
+  default     = 80
+}
+
+variable "http_destination_port" {
+  type        = number
+  description = "Port HTTP traffic is forwarded to (Traefik HTTP port)"
+  default     = 8000
+}
+
+variable "http_protocol" {
+  type        = string
+  description = "Protocol for HTTP service"
+  default     = "tcp"
+}
+
+variable "https_listen_port" {
+  type        = number
+  description = "Port the load balancer listens on for HTTPS traffic"
+  default     = 443
+}
+
+variable "https_destination_port" {
+  type        = number
+  description = "Port HTTPS traffic is forwarded to (Traefik HTTPS port)"
+  default     = 8443
+}
+
+variable "https_protocol" {
+  type        = string
+  description = "Protocol for HTTPS service"
+  default     = "tcp"
 }
