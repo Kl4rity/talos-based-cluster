@@ -1,2 +1,5 @@
 helm 4.0.4
 helmfile 1.2.3
+packer 1.14.3
+sops 3.11.0
+opentofu 1.11.2
