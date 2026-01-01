@@ -13,10 +13,10 @@ worker_target_label_selector = "type=worker"
 
 # HTTP service configuration (forwards to Traefik NodePort)
 http_listen_port = 80
-http_destination_port = 32765
+http_destination_port = 31362
 http_protocol = "tcp"
 
 # HTTPS service configuration (forwards to Traefik NodePort)
 https_listen_port = 443
-https_destination_port = 32031
+https_destination_port = 30377
 https_protocol = "tcp"

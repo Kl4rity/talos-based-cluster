@@ -20,16 +20,15 @@ service:
     app.kubernetes.io/name: traefik
     app.kubernetes.io/component: ingress
   nodePorts:
-    web: "32765"
-    websecure: "32031"
+    web: "31362"
+    websecure: "30377"
 
 # Dashboard (enabled for development)
 api:
   dashboard: true
 
-# Providers - Gateway API enabled
-providers:
-  kubernetesGateway: {}
+# Experimental features
+experimental: {}
 
 # Gateway API Configuration
 gatewayClass:
@@ -84,3 +83,10 @@ tlsStore: {}
 
 # Certificate resolvers (disabled - use cert-manager for SSL)
 certificatesResolvers: {}
+
+# RBAC configuration
+rbac:
+  enabled: true
+  namespaced: false
+
+
