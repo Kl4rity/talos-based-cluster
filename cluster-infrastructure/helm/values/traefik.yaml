@@ -3,6 +3,9 @@ deployment:
   enabled: true
   kind: Deployment
   replicas: 1
+  # Node selector to ensure Traefik runs on worker nodes
+  nodeSelector:
+    type: worker
 
 # Pod labels for load balancer targeting
 podLabels:
@@ -12,10 +15,13 @@ podLabels:
 # Service configuration for bare-metal environment
 service:
   enabled: true
-  type: LoadBalancer
+  type: NodePort
   labels:
     app.kubernetes.io/name: traefik
     app.kubernetes.io/component: ingress
+  nodePorts:
+    web: "32765"
+    websecure: "32031"
 
 # Dashboard (enabled for development)
 api:
@@ -39,6 +45,7 @@ additionalArguments:
   - "--accesslog=true"
   - "--entrypoints.web.address=:8000"
   - "--entrypoints.websecure.address=:8443"
+  - "--providers.kubernetesgateway"
 
 # Resource limits suitable for small Talos cluster
 resources:
