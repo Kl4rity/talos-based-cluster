@@ -26,3 +26,25 @@ variable "control_plane_config" {
     name_prefix = "talos-control-plane-"
   }
 }
+
+variable "worker_config" {
+  type = object({
+    server_type = string
+    labels      = map(string)
+    location    = string
+    name_prefix = string
+    enabled     = bool
+    count       = number
+  })
+  description = "Configuration for worker servers"
+  default = {
+    server_type = "cx23"
+    labels = {
+      type = "worker"
+    }
+    location    = "nbg1"
+    name_prefix = "talos-worker-"
+    enabled     = false
+    count       = 2
+  }
+}
