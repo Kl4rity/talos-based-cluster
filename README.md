@@ -1,4 +1,33 @@
+# WIP! None of this is done whatsoever.
 
+... so far this was just deployed as a PoC with a bad structure and way too much manual work involved. Based on the Talos tutorial:
+
+https://docs.siderolabs.com/talos/v1.7/platform-specific-installations/cloud-platforms/hetzner
+
+Target `.env` Structure:
+```
+IMAGE_ID=
+HCLOUD_TOKEN=
+CONTROLPLANE_IP=
+```
+
+Things needed:
+* A Hetzner Account and a project from which you get an API key.
+* Install the necessary tooling using mise.
+* Create a Talos Image snapshot with packer using ./hetzner/snapshot/
+* Set the IMAGE_ID env variable
+* Deploy both load balancers using `tofu apply -var="hcloud_token=${HCLOUD_TOKEN}"` in the respective folder
+** ./hetzner/load-balancer/
+** ./hetzner/traefik-lb/
+* Deploy the compute
+** ./hetzner/compute/deploy.sh
+* Set the CONTROLPLANE_IP
+* Follow the steps in the Talos tutorial to initialize the cluster
+** https://docs.siderolabs.com/talos/v1.7/platform-specific-installations/cloud-platforms/hetzner
+* Initialize the cluster with traefik using Helm
+** ./cluster-infrastructure/helm/install.sh
+
+------ WIP ------
 # Roll your own Talos-based k8s cluster
 
 The first question to ask is "Why bother?". There are many reasons.
