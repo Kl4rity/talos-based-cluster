@@ -1,0 +1,86 @@
+name: Apply Infrastructure
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'management-cluster/**'
+      - 'workload-cluster/**'
+  workflow_dispatch:
+
+env:
+  HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+  KUBECONFIG: management-cluster/bootstrap/kubeconfig
+
+jobs:
+  apply-management-cluster:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.event.head_commit.modified, 'management-cluster/')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu-version: 1.11.3
+
+      - name: Setup mise
+        uses: jdx/mise-action@v2
+
+      - name: Apply management cluster infrastructure
+        run: |
+          cd management-cluster
+          tofu init
+          tofu plan -out=tfplan -var="hcloud_token=$HCLOUD_TOKEN"
+          tofu apply -auto-approve tfplan
+
+  apply-workload-cluster:
+    runs-on: ubuntu-latest
+    needs: apply-management-cluster
+    if: github.event_name == 'push' && contains(github.event.head_commit.modified, 'workload-cluster/')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu-version: 1.11.3
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+
+      - name: Apply workload cluster infrastructure
+        run: |
+          cd workload-cluster
+          tofu init
+          tofu plan -out=tfplan -var="hcloud_token=$HCLOUD_TOKEN"
+          tofu apply -auto-approve tfplan
+
+  sync-argocd:
+    runs-on: ubuntu-latest
+    needs: [apply-management-cluster, apply-workload-cluster]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/download/v3.2.5/argocd-linux-amd64
+          chmod +x argocd-linux-amd64
+          sudo mv argocd-linux-amd64 /usr/local/bin/argocd
+
+      - name: Configure ArgoCD
+        run: |
+          argocd login $(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].ip}') --username admin --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
+
+      - name: Sync applications
+        run: |
+          argocd app sync app-of-apps
+          argocd app sync workload-cluster-infra

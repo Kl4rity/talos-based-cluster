@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: argocd
+spec:
+  description: Default project for all applications
+  sourceRepos:
+    - repoURL: https://github.com/deliberate/talos-based-cluster.git
+  destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/deliberate/talos-based-cluster.git
+    targetRevision: main
+    path: argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
