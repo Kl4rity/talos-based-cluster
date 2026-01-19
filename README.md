@@ -1,42 +1,71 @@
-# WIP! Work in progress - using hcloud-k8s module
+# Talos-based Kubernetes Cluster on Hetzner Cloud
 
-This repository manages a Talos-based Kubernetes cluster deployment on Hetzner Cloud using the hcloud-k8s module.
+This repository manages a Talos-based Kubernetes cluster deployment on Hetzner Cloud using the hcloud-k8s/kubernetes/hcloud module. All tools are managed via mise.
 
-Target `.env` Structure:
+## Why Talos on Hetzner?
+
+### Customer Demand
+Many customers prefer EU-based hosting over hyperscalers for data sovereignty and emotional reasons. Hetzner provides excellent performance with German/EU data residency.
+
+### Portability
+Kubernetes gives you deployment flexibility - migrate between Hetzner, Scaleway, Exoscale, or hyperscalers without reworking your K8s resources.
+
+### Cost
+Hyperscalers have high margins. Hetzner offers competitive pricing while maintaining excellent performance and reliability.
+
+## Quick Start
+
+1. **Prerequisites**
+   - Hetzner Cloud account with API token
+   - Clone this repository
+
+2. **Setup Environment**
+   ```bash
+   # Create .env file with your Hetzner token
+   echo "HCLOUD_TOKEN=your_hetzner_token_here" > .env
+   
+   # Install required tools via mise
+   mise install
+   ```
+
+3. **Deploy Cluster**
+   ```bash
+   cd workload-cluster
+   tofu init
+   tofu plan -var="hcloud_token=$HCLOUD_TOKEN"
+   tofu apply -var="hcloud_token=$HCLOUD_TOKEN"
+   ```
+
+4. **Access Cluster**
+   - `kubeconfig` - Generated for kubectl access
+   - `talosconfig` - Generated for Talos OS management
+
+## Architecture
+
+The hcloud-k8s module automatically provisions:
+- TalOS OS servers (control planes + workers)
+- Kubernetes bootstrap and configuration
+- Cilium CNI for networking
+- Hetzner Cloud Controller Manager
+- Hetzner CSI for persistent storage
+- Metrics Server, Cert Manager, Cluster Autoscaler
+- Longhorn distributed storage
+
+## Module Details
+
+**Source**: [hcloud-k8s/kubernetes/hcloud](https://registry.terraform.io/modules/hcloud-k8s/kubernetes/hcloud/latest)
+
+The module handles the complete cluster lifecycle using Packer for TalOS image creation and Terraform for infrastructure management.
+
+## Environment Variables
+
+Required in `.env`:
+```bash
+HCLOUD_TOKEN=your_hetzner_cloud_api_token
 ```
-HCLOUD_TOKEN=
-```
 
-Things needed:
-* A Hetzner Account and a project from which you get an API key.
-* Install the necessary tooling using mise.
-* Set the HCLOUD_TOKEN env variable
-* Deploy the cluster using the hcloud-k8s module
+## Security Notes
 
------- WIP ------
-# Roll your own Talos-based k8s cluster
-
-The first question to ask is "Why bother?". There are many reasons.
-
-## Customer demand
-In recent history, demands of customers shifted. While, in the past, being "in the cloud" was a positive,
-it is starting to be a hurdle for sales if they have to admit that your SaaS is hosted on one of the hyperscalers.
-
-Whether it is rational or not is not of concern. SMEs have an emotional reaction to US-based tech these days and would rather
-be hosted somewhere in the EU.
-
-## Portability
-Developing against k8s as your infrastructure gives you optionality. You could continue hosting it on Hetzner and a few bare metal servers or VMs
-or you can move it to a managed cluster on Scaleway, Exascale, or move to a Hyperscaler after all. Most of your deployments are describes as k8s
-resources and you therefore won't have to rework them.
-
-## Cost
-Hyperscalers are expensive. Heralded as a cost-saving measure in the past we now know that their margins are VERY good - hence you're likely paying a lot.
-
-
-# Installation
-This repository manages all tools necessary via mise (https://mise.jdx.dev/getting-started.html).
-
-``` sh
-mise install
-```
+- Never commit `.env` files or API tokens
+- State files are excluded from git
+- Sensitive Terraform variables marked appropriately

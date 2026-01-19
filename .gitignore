@@ -1,9 +1,27 @@
+# Environment variables
 .env
-.terraform
+
+# Terraform
+.terraform/
 .terraform.lock.hcl
 terraform.tfstate
 terraform.tfstate.backup
 *.tfvars
+
+# Kubernetes configs
 kubeconfig
-.terraform/
-.terraform.lock.hcl
+talosconfig
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

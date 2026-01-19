@@ -15,7 +15,7 @@ module "kubernetes" {
   source  = "hcloud-k8s/kubernetes/hcloud"
   version = "3.9.2"
 
-  cluster_name = "deliberate-cluster-2"
+  cluster_name = "deliberate-cluster"
   hcloud_token = var.hcloud_token
 
   cluster_kubeconfig_path  = "kubeconfig"
@@ -29,7 +29,7 @@ module "kubernetes" {
       name     = "control"
       type     = "cax11"
       location = "fsn1"
-      count    = 1
+      count    = 3
     }
   ]
 
@@ -38,7 +38,7 @@ module "kubernetes" {
       name     = "worker"
       type     = "cax11"
       location = "fsn1"
-      count    = 1
+      count    = 2
     }
   ]
 
