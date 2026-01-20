@@ -21,10 +21,13 @@ module "kubernetes" {
   cluster_kubeconfig_path  = "kubeconfig"
   cluster_talosconfig_path = "talosconfig"
 
-  cluster_domain     = "cloud.deliberate.tech"
-  kube_api_hostname  = "kube.cloud.deliberate.tech"
+   cluster_domain     = "cloud.deliberate.tech"
+   kube_api_hostname  = "kube.cloud.deliberate.tech"
 
-  control_plane_nodepools = [
+   cert_manager_enabled  = true
+   ingress_nginx_enabled = true
+
+   control_plane_nodepools = [
     {
       name     = "control"
       type     = "cax11"
@@ -43,4 +46,5 @@ module "kubernetes" {
   ]
 
   firewall_use_current_ipv4 = true
+  kube_api_load_balancer_enabled = true
 }
