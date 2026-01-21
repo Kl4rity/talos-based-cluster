@@ -45,6 +45,6 @@ module "kubernetes" {
     }
   ]
 
-  firewall_use_current_ipv4 = true
-  kube_api_load_balancer_enabled = true
+   firewall_use_current_ipv4 = true
+   kube_api_load_balancer_enabled = true
 }

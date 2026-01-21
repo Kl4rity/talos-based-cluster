@@ -25,3 +25,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Platform resources module
+platform-resources/.terraform/
+platform-resources/.terraform.lock.hcl
+platform-resources/terraform.tfstate
+platform-resources/terraform.tfstate.backup
