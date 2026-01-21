@@ -13,7 +13,7 @@ provider "hcloud" {
 
 module "kubernetes" {
   source  = "hcloud-k8s/kubernetes/hcloud"
-  version = "3.9.2"
+  version = "3.20.1"
 
   cluster_name = "deliberate-cluster"
   hcloud_token = var.hcloud_token
@@ -21,11 +21,11 @@ module "kubernetes" {
   cluster_kubeconfig_path  = "kubeconfig"
   cluster_talosconfig_path = "talosconfig"
 
-   cluster_domain     = "cloud.deliberate.tech"
-   kube_api_hostname  = "kube.cloud.deliberate.tech"
+   cluster_domain     = "deliberate.cloud"
+   kube_api_hostname  = "kube.deliberate.cloud"
 
-   cert_manager_enabled  = true
-   ingress_nginx_enabled = true
+   cert_manager_enabled       = true
+   cilium_gateway_api_enabled = true
 
    control_plane_nodepools = [
     {
