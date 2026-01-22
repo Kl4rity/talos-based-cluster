@@ -64,7 +64,55 @@ resource "kubernetes_manifest" "cilium_gateway" {
 
 
 
-variable "letsencrypt_email" {
-  description = "Email address for Let's Encrypt certificate notifications"
-  type        = string
+
+
+resource "kubernetes_manifest" "hetzner_dns_api_token_secret" {
+  manifest = {
+    apiVersion = "v1"
+    kind       = "Secret"
+    metadata = {
+      name      = "hetzner-dns-api-token"
+      namespace = "cert-manager"
+    }
+    type = "Opaque"
+    stringData = {
+      api-token = var.hetzner_dns_api_token
+    }
+  }
+}
+
+resource "kubernetes_manifest" "letsencrypt_dns01_issuer" {
+  manifest = {
+    apiVersion = "cert-manager.io/v1"
+    kind       = "ClusterIssuer"
+    metadata = {
+      name = "letsencrypt-dns01"
+    }
+    spec = {
+      acme = {
+        server         = "https://acme-v02.api.letsencrypt.org/directory"
+        email          = var.letsencrypt_email
+        privateKeySecretRef = {
+          name = "letsencrypt-dns01-key"
+        }
+        solvers = [
+          {
+            dns01 = {
+              webhook = {
+                groupName  = "dns01.deliberate.cloud"
+                solverName = "lexicon"
+                config = {
+                  provider = "hetzner"
+                  apiTokenRef = {
+                    name = "hetzner-dns-api-token"
+                    key  = "api-token"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
 }

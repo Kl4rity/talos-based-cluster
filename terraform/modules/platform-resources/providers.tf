@@ -6,8 +6,3 @@ terraform {
     }
   }
 }
-
-provider "kubernetes" {
-  config_path    = "../workload-cluster/kubeconfig"
-  config_context = "admin@deliberate-cluster"
-}
