@@ -1,6 +1,6 @@
 # Talos-based Kubernetes Cluster on Hetzner Cloud
 
-This repository manages a Talos-based Kubernetes cluster deployment on Hetzner Cloud using the hcloud-k8s/kubernetes/hcloud module. All tools are managed via mise.
+A unified Terraform configuration for deploying a complete Kubernetes cluster on Hetzner Cloud with a single command.
 
 ## Why Talos on Hetzner?
 
@@ -15,18 +15,101 @@ Hyperscalers have high margins. Hetzner offers competitive pricing while maintai
 
 ## Quick Start
 
-1. **Prerequisites**
-   - Hetzner Cloud account with API token
-   - Clone this repository
+### Option 1: Environment Variables (Recommended)
+Set all required environment variables and run:
 
-2. **Setup Environment**
+```bash
+# Set environment variables (add to ~/.bashrc or .env)
+export HCLOUD_TOKEN="your-hcloud-token"
+export LETSENCRYPT_EMAIL="admin@your-domain.com"
+export HETZNER_DNS_API_TOKEN="your-hetzner-dns-token"
+
+# Deploy
+cd terraform
+tofu init
+tofu apply
+```
+
+### Option 2: Variables File
+1. **Copy and configure variables:**
    ```bash
-   # Create .env file with your Hetzner token
-   echo "HCLOUD_TOKEN=your_hetzner_token_here" > .env
-   
-   # Install required tools via mise
-   mise install
-   ```
+    cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+    # Edit terraform/terraform.tfvars with your actual values
+    ```
+
+2. **Initialize and deploy:**
+   ```bash
+    cd terraform
+    tofu init
+    tofu apply -var-file="terraform/terraform.tfvars"
+    ```
+
+## Repository Structure
+
+This is the **new unified approach**. The legacy `workload-cluster/` and `platform-resources/` directories are deprecated.
+
+```
+talos-based-cluster/
+└── terraform/                    # 🆕 Unified configuration (use this)
+    ├── main.tf                 # Root config with providers and modules
+    ├── variables.tf            # All shared variables (3 total)
+    ├── terraform.tfvars.example # Example configuration
+    ├── README.md             # This documentation
+    └── modules/
+        ├── workload-cluster/     # Core cluster infrastructure
+        └── platform-resources/   # Platform resources
+
+    # Legacy directories (can remove after successful deployment):
+    ├── workload-cluster/         # ❌ Deprecated
+    └── platform-resources/       # ❌ Deprecated
+```
+
+## Architecture
+
+This configuration deploys:
+
+### Core Infrastructure (`modules/workload-cluster`)
+- Talos-based Kubernetes cluster on Hetzner Cloud
+- 3 control plane nodes (cax11, fsn1)
+- 2 worker nodes (cax11, fsn1)
+- Cilium CNI with Gateway API enabled
+- Cert-Manager, Metrics Server, Longhorn storage, Cluster Autoscaler
+- Hetzner CCM/CSI for cloud integration
+
+### Platform Resources (`modules/platform-resources`)
+- Cilium Gateway for ingress (`*.deliberate.cloud`)
+- Hetzner DNS-01 certificate issuer
+- TLS certificate management via cert-manager
+- LoadBalancer configuration for external access
+
+## Deployment Commands
+
+### Full Cluster Deployment
+```bash
+# From repository root
+cd terraform
+
+# Environment variables approach (recommended)
+export HCLOUD_TOKEN="your-token"
+export LETSENCRYPT_EMAIL="admin@domain.com"
+export HETZNER_DNS_API_TOKEN="your-dns-token"
+
+tofu init
+tofu apply
+```
+
+### Platform-Only Updates
+If you only need to update platform resources (after initial deployment):
+```bash
+cd terraform
+tofu apply -target=module.platform_resources
+```
+
+## Prerequisites
+
+- Hetzner Cloud account with API token
+- Clone this repository
+- Install required tools via `mise install`
 
 3. **Deploy Cluster**
    ```bash
