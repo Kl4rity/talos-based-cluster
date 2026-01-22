@@ -75,8 +75,8 @@ resource "kubernetes_manifest" "hetzner_dns_api_token_secret" {
       namespace = "cert-manager"
     }
     type = "Opaque"
-    stringData = {
-      api-token = var.hetzner_dns_api_token
+    data = {
+      api-token = base64encode(var.hetzner_dns_api_token)
     }
   }
 }
