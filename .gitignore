@@ -31,3 +31,27 @@ platform-resources/.terraform/
 platform-resources/.terraform.lock.hcl
 platform-resources/terraform.tfstate
 platform-resources/terraform.tfstate.backup
+
+# Workload cluster module
+workload-cluster/.terraform/
+workload-cluster/.terraform.lock.hcl
+workload-cluster/terraform.tfstate
+workload-cluster/terraform.tfstate.backup
+workload-cluster/kubeconfig
+workload-cluster/talosconfig
+
+# Unified terraform directory
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/modules/workload-cluster/.terraform/
+terraform/modules/workload-cluster/.terraform.lock.hcl
+terraform/modules/workload-cluster/terraform.tfstate
+terraform/modules/workload-cluster/terraform.tfstate.backup
+terraform/modules/workload-cluster/kubeconfig
+terraform/modules/workload-cluster/talosconfig
+terraform/modules/platform-resources/.terraform/
+terraform/modules/platform-resources/.terraform.lock.hcl
+terraform/modules/platform-resources/terraform.tfstate
+terraform/modules/platform-resources/terraform.tfstate.backup
