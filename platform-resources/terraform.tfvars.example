@@ -1,0 +1,2 @@
+hetzner_dns_api_token = "your-hetzner-dns-api-token"
+letsencrypt_email    = "admin@deliberate.cloud"
