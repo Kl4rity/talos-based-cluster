@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "tofu_plan": "allow",
+    "tofu_apply": "allow",
+    "tofu_init": "allow",
+    "tofu_validate": "allow",
+    "tofu_format": "allow",
+    "tofu_destroy": "ask"
+  }
+}
