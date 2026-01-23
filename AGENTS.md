@@ -1,166 +1,135 @@
 # AGENTS.md - Agent Guidelines for talos-based-cluster
 
 ## Overview
-This repository manages a Talos-based Kubernetes cluster deployment on Hetzner Cloud using a unified Terraform configuration with the hcloud-k8s/kubernetes/hcloud module. All tools are managed via mise.
+This repository manages a Talos-based Kubernetes cluster on Hetzner Cloud using OpenTofu.
+All infrastructure is defined in the `terraform/` directory using a unified configuration approach.
 
-## Tool Installation
-```bash
-mise install
-```
-
-Required tools versions (.tool-versions):
+## Tooling
+Tools are managed via `mise`. Ensure you have the following versions installed:
 - opentofu 1.11.2
 - helm 4.0.4
 - helmfile 1.2.3
 - packer 1.14.3
 - sops 3.11.0
 
-## Build/Deploy Commands
+Run `mise install` to set up the environment.
 
-### Primary Commands (Unified Approach)
-All operations are run from the `terraform/` directory:
+## Build, Lint, and Test Commands
 
+All commands must be run from the `terraform/` directory: `cd terraform`
+
+### Validation & Linting
+Run these before any commit to ensure code quality:
 ```bash
-cd terraform
-
-# Initialize modules and providers
-tofu init
-
-# Plan with environment variables (recommended)
-tofu plan
-
-# Apply changes
-tofu apply
-
-# Validate configuration
+# Validate configuration syntax and consistency
 tofu validate
 
-# Format check (fails if not formatted)
+# Check formatting (CI will fail if this passes with changes)
 tofu fmt -check
 
-# Format code (auto-fixes)
+# Automatically fix formatting
 tofu fmt
-
-# Destroy infrastructure
-tofu destroy
-
-# Target specific modules
-tofu apply -target=module.workload_cluster
-tofu apply -target=module.platform_resources
 ```
 
-### Testing and Validation
+### Running Tests (Planning)
+In this Infrastructure-as-Code context, "testing" is primarily done via `tofu plan`.
+
+**Running a "Single Test" (Targeted Plan):**
+To test a specific module or resource without planning the entire cluster (useful for faster feedback):
 ```bash
-# Validate all Terraform files
-tofu validate
+# Test only the platform resources (ingress, certs, DNS)
+tofu plan -target=module.platform_resources
 
-# Check formatting
-tofu fmt -check
+# Test only the workload cluster core
+tofu plan -target=module.workload_cluster
+```
 
-# Plan to detect configuration errors
+**Full Integration Test (Full Plan):**
+To verify the entire configuration matches the desired state:
+```bash
+tofu plan
+```
+
+**Deep Validation:**
+For a more thorough check that might catch API-level issues:
+```bash
 tofu plan -detailed-exitcode
 ```
 
-### Legacy Commands (Deprecated)
-The `workload-cluster/` directory approach is deprecated. Use the unified `terraform/` configuration instead.
-
 ## Code Style Guidelines
 
-### OpenTofu/Terraform (.tf)
-- **Indentation**: 2 spaces (no tabs)
-- **Naming**: snake_case for resources, variables, and outputs
-- **Variables**: Always include `type`, `description`, and `sensitive` (when applicable)
-- **Default values**: Provide sensible defaults in variable blocks
-- **Complex types**: Use `object({})` or `map()` for structured data
-- **Outputs**: Include `description` for all outputs
-- **Providers**: Use `~> X.Y` version constraints in required_providers
-- **Resource naming**: Descriptive names using `resource_type_descriptive_name` pattern
-- **Module structure**: Separate main.tf, variables.tf, outputs.tf
-- **Provider configuration**: Centralize in root module, pass to submodules
+### Terraform/OpenTofu (.tf)
+*   **Formatting**: strictly use `tofu fmt`. Indentation is 2 spaces.
+*   **Naming Conventions**:
+    *   Resources/Variables/Outputs: `snake_case` (e.g., `hcloud_token`).
+    *   Resource Names: Descriptive and scoped (e.g., `hcloud_load_balancer.ingress_gateway`).
+*   **Variables**:
+    *   Must define `type`, `description`.
+    *   Mark `sensitive = true` for secrets (tokens, passwords).
+    *   Provide `default` values where sensible.
+*   **Outputs**:
+    *   Must include `description`.
+    *   Do not output sensitive values in cleartext; mark as `sensitive = true`.
+*   **Structure**:
+    *   `main.tf`: Provider config and module calls.
+    *   `variables.tf`: Input variable definitions.
+    *   `outputs.tf`: Output definitions.
+    *   `versions.tf`: Provider versions and Terraform settings.
+*   **Modules**:
+    *   Use the unified structure in `terraform/modules/`.
+    *   Do not use the deprecated root-level directories (`workload-cluster/`, etc.).
 
-### HCL/Terraform Specific Patterns
-- **Module calls**: Use explicit variable assignments, one per line
-- **Data sources**: Include depends_on when needed for explicit dependencies
-- **Resource ordering**: Use explicit dependencies with depends_on when implicit ordering isn't clear
-- **Kubernetes manifests**: Use kubernetes_manifest resource for complex YAML structures
-- **Sensitive data**: Always mark with `sensitive = true` and avoid in outputs
+### Kubernetes Manifests (YAML)
+*   **Indentation**: 2 spaces.
+*   **Labels**: Use standard `app.kubernetes.io/*` labels.
+*   **Namespaces**: Always explicitly specify `namespace`.
 
-### Kubernetes YAML
-- **Indentation**: 2 spaces
-- **API versions**: Use current stable versions
-- **Metadata**: Include name and namespace for all resources
-- **Labels**: Use consistent labeling conventions (app.kubernetes.io/*)
-- **Secrets**: Use kubernetes_manifest or separate YAML files for sensitive data
+### Error Handling & Safety
+*   **Secrets**: NEVER commit secrets. Use `sops` or environment variables.
+*   **State**: `terraform.tfstate` is local and gitignored.
+*   **Destructive Actions**: Always run `tofu plan` before `tofu apply` or `tofu destroy`. Explain the impact to the user before running apply/destroy.
 
-### Environment Variables
-- **Naming**: UPPER_CASE with underscores
-- **Files**: Store in `.env` (never committed)
-- **Validation**: Check required variables before running tofu commands
+## Repository Architecture
 
-## File Organization
+### Directory Structure
 ```
-terraform/                          # Primary configuration directory
-├── main.tf                        # Root configuration with providers and modules
-├── variables.tf                   # All shared variables
-├── terraform.tfvars.example      # Example configuration
+terraform/
+├── main.tf                 # Entry point
+├── variables.tf            # Global variables
 ├── modules/
-│   ├── workload-cluster/         # Core cluster infrastructure
-│   └── platform-resources/       # Platform resources and networking
-└── README.md                     # Documentation
-
-# Generated files (not committed)
-kubeconfig                        # Kubernetes access configuration
-talosconfig                       # Talos OS management configuration
-*.tfvars                          # Variable values
-terraform.tfstate*                # State files
-.terraform/                       # Provider cache
+│   ├── workload-cluster/   # Talos nodes, CNI, CSI, CCM
+│   └── platform-resources/ # Ingress, Cert-Manager, ExternalDNS
+└── terraform.tfstate       # Local state (gitignored)
 ```
+
+### Module Dependencies
+1.  **workload-cluster**: The base layer. Sets up nodes and networking.
+2.  **platform-resources**: Depends on `workload-cluster`. Configures `*.deliberate.cloud` ingress.
 
 ## Environment Variables
-Required variables (set in `.env` or export):
-- `HCLOUD_TOKEN` - Hetzner Cloud API token (sensitive)
-- `LETSENCRYPT_EMAIL` - Email for Let's Encrypt certificates
-- `HETZNER_DNS_API_TOKEN` - Hetzner DNS API token for DNS-01 challenges (sensitive)
-
-## Security Notes
-- Never commit `.env` files or API tokens
-- Mark sensitive variables with `sensitive = true` in Terraform
-- Use SOPS for encrypted secrets when needed
-- Never commit `terraform.tfstate` files
-- Generate kubeconfig and talosconfig locally, never commit them
-- Validate all plans before applying with `tofu plan`
-
-## Module Dependencies
-- **workload_cluster**: Deploys the core Talos Kubernetes cluster using hcloud-k8s module
-- **platform_resources**: Depends on workload_cluster, installs ingress, certificates, and DNS
-
-## hcloud-k8s Module Details
-The hcloud-k8s module (v3.20.1) automatically handles:
-- Talos image creation via Packer
-- Server provisioning (control planes and workers)
-- Talos and Kubernetes bootstrap
-- Cilium CNI with Gateway API
-- Hetzner CCM/CSI integration
-- Metrics Server, Cert Manager, Cluster Autoscaler
-- Longhorn distributed storage
-
-Module: https://registry.terraform.io/modules/hcloud-k8s/kubernetes/hcloud/latest
+Required for all operations (set in `.env` or export):
+*   `HCLOUD_TOKEN`: Hetzner Cloud API token.
+*   `LETSENCRYPT_EMAIL`: Contact email for SSL.
+*   `HETZNER_DNS_API_TOKEN`: DNS management token.
 
 ## Common Workflows
+
+### Deploy Changes
 ```bash
-# Full cluster deployment
 cd terraform
-export HCLOUD_TOKEN="your-token"
-export LETSENCRYPT_EMAIL="admin@domain.com"
-export HETZNER_DNS_API_TOKEN="your-dns-token"
-tofu init && tofu apply
+tofu init
+tofu plan -out=tfplan
+tofu apply tfplan
+```
 
-# Platform-only updates (after cluster exists)
+### Platform-Only Update
+```bash
+cd terraform
 tofu apply -target=module.platform_resources
+```
 
-# Cluster-only updates
-tofu apply -target=module.workload_cluster
-
-# Clean destroy
+### Destroy Infrastructure
+```bash
+cd terraform
 tofu destroy
 ```
