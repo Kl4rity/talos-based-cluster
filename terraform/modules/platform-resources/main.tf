@@ -80,9 +80,6 @@ resource "kubernetes_manifest" "cilium_gateway" {
     metadata = {
       name      = "cilium-gateway"
       namespace = "default"
-      annotations = {
-        "cert-manager.io/issuer" = "letsencrypt-dns01"
-      }
     }
     spec = {
       gatewayClassName = "cilium"

@@ -7,6 +7,7 @@
 terraform.tfstate
 terraform.tfstate.backup
 *.tfvars
+*.tfplan
 
 # Kubernetes configs
 kubeconfig
