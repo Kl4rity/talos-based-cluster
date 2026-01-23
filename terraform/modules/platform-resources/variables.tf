@@ -3,8 +3,9 @@ variable "letsencrypt_email" {
   type        = string
 }
 
-variable "hetzner_dns_api_token" {
-  description = "Hetzner DNS API token for DNS-01 challenges"
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token for DNS-01 challenges"
   type        = string
   sensitive   = true
 }
+

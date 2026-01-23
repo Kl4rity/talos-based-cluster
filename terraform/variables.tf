@@ -9,8 +9,9 @@ variable "letsencrypt_email" {
   description = "Email address for Let's Encrypt certificate notifications"
 }
 
-variable "hetzner_dns_api_token" {
+variable "cloudflare_api_token" {
   type        = string
-  description = "Hetzner DNS API token for DNS-01 challenges"
+  description = "Cloudflare API token for DNS-01 challenges"
   sensitive   = true
 }
+
