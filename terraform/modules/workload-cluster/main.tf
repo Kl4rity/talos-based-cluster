@@ -32,6 +32,7 @@ module "kubernetes" {
 
   cert_manager_enabled       = true
   cilium_gateway_api_enabled = true
+  ingress_nginx_enabled      = false
 
   control_plane_nodepools = [
     {

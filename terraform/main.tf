@@ -8,6 +8,9 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.32"
     }
+    helm = {
+      source  = "hashicorp/helm"
+    }
   }
 }
 
@@ -16,9 +19,10 @@ provider "hcloud" {
 }
 
 module "workload_cluster" {
-  source       = "./modules/workload-cluster"
-  hcloud_token = var.hcloud_token
-  domain_name  = var.domain_name
+  source               = "./modules/workload-cluster"
+  hcloud_token         = var.hcloud_token
+  domain_name          = var.domain_name
+  cloudflare_api_token = var.cloudflare_api_token
 }
 
 module "platform_resources" {
@@ -29,6 +33,7 @@ module "platform_resources" {
 
   providers = {
     kubernetes = kubernetes
+    helm       = helm
   }
   depends_on = [module.workload_cluster]
 }
