@@ -5,7 +5,7 @@ resource "kubernetes_manifest" "cloudflare_api_token_secret" {
     kind       = "Secret"
     metadata = {
       name      = "cloudflare-api-token"
-      namespace = "default"
+      namespace = "cert-manager"
     }
     type = "Opaque"
     data = {
@@ -14,14 +14,13 @@ resource "kubernetes_manifest" "cloudflare_api_token_secret" {
   }
 }
 
-# Issuer for Let's Encrypt DNS-01 validation via Cloudflare
+# ClusterIssuer for Let's Encrypt DNS-01 validation via Cloudflare
 resource "kubernetes_manifest" "letsencrypt_dns01_issuer" {
   manifest = {
     apiVersion = "cert-manager.io/v1"
-    kind       = "Issuer"
+    kind       = "ClusterIssuer"
     metadata = {
-      name      = "letsencrypt-dns01"
-      namespace = "default"
+      name = "letsencrypt-dns01"
     }
     spec = {
       acme = {
@@ -62,7 +61,7 @@ resource "kubernetes_manifest" "deliberate_cloud_certificate" {
         "*.deliberate.cloud"
       ]
       issuerRef = {
-        kind = "Issuer"
+        kind = "ClusterIssuer"
         name = "letsencrypt-dns01"
       }
       secretName = "deliberate-cloud-tls"
