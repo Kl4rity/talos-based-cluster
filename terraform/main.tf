@@ -41,3 +41,9 @@ module "platform_resources" {
 provider "kubernetes" {
   config_path = "${path.module}/modules/workload-cluster/kubeconfig"
 }
+
+provider "helm" {
+  kubernetes = {
+    config_path = "${path.module}/modules/workload-cluster/kubeconfig"
+  }
+}
