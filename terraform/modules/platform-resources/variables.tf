@@ -9,3 +9,7 @@ variable "cloudflare_api_token" {
   sensitive   = true
 }
 
+variable "domain_name" {
+  description = "Base domain for the cluster (e.g., 'deliberate.cloud')"
+  type        = string
+}

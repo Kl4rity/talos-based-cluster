@@ -20,9 +20,10 @@ Set all required environment variables and run:
 
 ```bash
 # Set environment variables (add to ~/.bashrc or .env)
-export HCLOUD_TOKEN="your-hcloud-token"
-export LETSENCRYPT_EMAIL="admin@your-domain.com"
-export HETZNER_DNS_API_TOKEN="your-hetzner-dns-token"
+export TF_VAR_hcloud_token="your-hcloud-token"
+export TF_VAR_letsencrypt_email="admin@your-domain.com"
+export TF_VAR_cloudflare_api_token="your-cloudflare-token"
+export TF_VAR_domain_name="your-domain.com"
 
 # Deploy
 cd terraform
@@ -52,7 +53,7 @@ This is the **new unified approach**. The legacy `workload-cluster/` and `platfo
 talos-based-cluster/
 └── terraform/                    # 🆕 Unified configuration (use this)
     ├── main.tf                 # Root config with providers and modules
-    ├── variables.tf            # All shared variables (3 total)
+    ├── variables.tf            # All shared variables (4 total)
     ├── terraform.tfvars.example # Example configuration
     ├── README.md             # This documentation
     └── modules/
@@ -75,12 +76,14 @@ This configuration deploys:
 - Cilium CNI with Gateway API enabled
 - Cert-Manager, Metrics Server, Longhorn storage, Cluster Autoscaler
 - Hetzner CCM/CSI for cloud integration
+- **Cluster Name**: Derived from domain (e.g., `acme.com` → `acme-cluster`)
 
 ### Platform Resources (`modules/platform-resources`)
-- Cilium Gateway for ingress (`*.deliberate.cloud`)
+- Cilium Gateway for ingress (`*.your-domain.com`)
 - Hetzner DNS-01 certificate issuer
 - TLS certificate management via cert-manager
 - LoadBalancer configuration for external access
+- **Gateway Name**: Derived from domain (e.g., `acme.com` → `acme-gateway`)
 
 ## Deployment Commands
 
@@ -92,7 +95,8 @@ cd terraform
 # Environment variables approach (recommended)
 export HCLOUD_TOKEN="your-token"
 export LETSENCRYPT_EMAIL="admin@domain.com"
-export HETZNER_DNS_API_TOKEN="your-dns-token"
+export CLOUDFLARE_API_TOKEN="your-cloudflare-token"
+export TF_VAR_domain_name="your-domain.com"
 
 tofu init
 tofu apply
@@ -108,44 +112,9 @@ tofu apply -target=module.platform_resources
 ## Prerequisites
 
 - Hetzner Cloud account with API token
+- Cloudflare account for DNS management (required for DNS-01 challenges)
 - Clone this repository
 - Install required tools via `mise install`
-
-3. **Deploy Cluster**
-   ```bash
-   cd workload-cluster
-   tofu init
-   tofu plan -var="hcloud_token=$HCLOUD_TOKEN"
-   tofu apply -var="hcloud_token=$HCLOUD_TOKEN"
-   ```
-
-4. **Access Cluster**
-   - `kubeconfig` - Generated for kubectl access
-   - `talosconfig` - Generated for Talos OS management
-
-## Architecture
-
-The hcloud-k8s module automatically provisions:
-- TalOS OS servers (control planes + workers)
-- Kubernetes bootstrap and configuration
-- Cilium CNI for networking
-- Hetzner Cloud Controller Manager
-- Hetzner CSI for persistent storage
-- Metrics Server, Cert Manager, Cluster Autoscaler
-- Longhorn distributed storage
-
-## Module Details
-
-**Source**: [hcloud-k8s/kubernetes/hcloud](https://registry.terraform.io/modules/hcloud-k8s/kubernetes/hcloud/latest)
-
-The module handles the complete cluster lifecycle using Packer for TalOS image creation and Terraform for infrastructure management.
-
-## Environment Variables
-
-Required in `.env`:
-```bash
-HCLOUD_TOKEN=your_hetzner_cloud_api_token
-```
 
 ## Security Notes
 

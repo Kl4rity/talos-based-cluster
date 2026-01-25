@@ -9,9 +9,10 @@ Set all required environment variables and run:
 
 ```bash
 # Set environment variables (add to ~/.bashrc or .env)
-export HCLOUD_TOKEN="your-hcloud-token"
-export LETSENCRYPT_EMAIL="admin@your-domain.com"
-export HETZNER_DNS_API_TOKEN="your-hetzner-dns-token"
+export TF_VAR_hcloud_token="your-hcloud-token"
+export TF_VAR_letsencrypt_email="admin@your-domain.com"
+export TF_VAR_cloudflare_api_token="your-cloudflare-token"
+export TF_VAR_domain_name="your-domain.com"
 
 # Deploy
 cd terraform
@@ -37,9 +38,10 @@ tofu apply
 
 | Variable | Environment Variable | Description | Sensitive |
 |-----------|-------------------|-------------|------------|
-| `hcloud_token` | `HCLOUD_TOKEN` | Hetzner Cloud API token | ✅ |
-| `letsencrypt_email` | `LETSENCRYPT_EMAIL` | Email for Let's Encrypt notifications | ❌ |
-| `hetzner_dns_api_token` | `HETZNER_DNS_API_TOKEN` | Hetzner DNS API token for DNS-01 challenges | ✅ |
+| `hcloud_token` | `TF_VAR_hcloud_token` | Hetzner Cloud API token | ✅ |
+| `letsencrypt_email` | `TF_VAR_letsencrypt_email` | Email for Let's Encrypt notifications | ❌ |
+| `cloudflare_api_token` | `TF_VAR_cloudflare_api_token` | Cloudflare API token for DNS-01 challenges | ✅ |
+| `domain_name` | `TF_VAR_domain_name` | Base domain (e.g., "acme.com") | ❌ |
 
 ## Repository Structure
 
@@ -49,7 +51,7 @@ This is the **new unified approach**. The legacy `workload-cluster/` and `platfo
 talos-based-cluster/
 └── terraform/                    # 🆕 Unified configuration (use this)
     ├── main.tf                 # Root config with providers and modules
-    ├── variables.tf            # All shared variables (3 total)
+    ├── variables.tf            # All shared variables (4 total)
     ├── terraform.tfvars.example # Example configuration
     ├── README.md             # This documentation
     └── modules/
@@ -72,12 +74,14 @@ This configuration deploys:
 - Cilium CNI with Gateway API enabled
 - Cert-Manager, Metrics Server, Longhorn storage, Cluster Autoscaler
 - Hetzner CCM/CSI for cloud integration
+- **Cluster Name**: Derived from domain (e.g., `acme.com` → `acme-cluster`)
 
 ### Platform Resources (`modules/platform-resources`)
-- Cilium Gateway for ingress (`*.deliberate.cloud`)
+- Cilium Gateway for ingress (`*.your-domain.com`)
 - Hetzner DNS-01 certificate issuer
 - TLS certificate management via cert-manager
 - LoadBalancer configuration for external access
+- **Gateway Name**: Derived from domain (e.g., `acme.com` → `acme-gateway`)
 
 ## Outputs
 
@@ -109,9 +113,10 @@ Simply add new module calls in `main.tf` when ready.
 cd terraform
 
 # Environment variables approach (recommended)
-export HCLOUD_TOKEN="your-token"
-export LETSENCRYPT_EMAIL="admin@domain.com"
-export HETZNER_DNS_API_TOKEN="your-dns-token"
+export TF_VAR_hcloud_token="your-hcloud-token"
+export TF_VAR_letsencrypt_email="admin@your-domain.com"
+export TF_VAR_cloudflare_api_token="your-cloudflare-token"
+export TF_VAR_domain_name="your-domain.com"
 
 tofu init
 tofu apply
@@ -129,51 +134,4 @@ tofu apply -target=module.platform_resources
 After successful deployment, you can remove legacy directories:
 ```bash
 rm -rf workload-cluster platform-resources
-```
-
-## Architecture
-
-This configuration deploys:
-
-### Core Infrastructure (`modules/workload-cluster`)
-- Talos-based Kubernetes cluster on Hetzner Cloud
-- 3 control plane nodes (cax11, fsn1)
-- 2 worker nodes (cax11, fsn1)
-- Cilium CNI with Gateway API enabled
-- Cert-Manager, Metrics Server, Longhorn storage, Cluster Autoscaler
-- Hetzner CCM/CSI for cloud integration
-
-### Platform Resources (`modules/platform-resources`)
-- Cilium Gateway for ingress (`*.deliberate.cloud`)
-- Hetzner DNS-01 certificate issuer
-- TLS certificate management via cert-manager
-- LoadBalancer configuration for external access
-
-## Outputs
-
-- **Cluster Access**: `kubeconfig` and `talosconfig` files for cluster management
-- **Network**: Public/private IPs for all nodes
-- **Gateway**: External IP and configuration details
-- **Storage**: Cilium encryption details
-
-## Extensibility
-
-The modular structure makes it easy to add new components:
-
-```
-modules/
-├── workload-cluster/     # Core cluster (current)
-├── platform-resources/   # Ingress/certificates (current)
-├── container-registry/  # Harbor registry (future)
-├── logging/             # Loki/Promtail (future)
-└── s3-storage/          # MinIO/Hetzner Object Storage (future)
-```
-
-Simply add new module calls in `main.tf` when ready.
-
-## Cleanup
-
-After successful deployment, you can remove the old directories:
-```bash
-rm -rf ../workload-cluster ../platform-resources
 ```

@@ -1,3 +1,26 @@
-hcloud_token           = "your-hcloud-token"
-letsencrypt_email       = "admin@deliberate.cloud"
-hetzner_dns_api_token  = "your-hetzner-dns-api-token"
+# ------------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ------------------------------------------------------------------------------
+
+# Hetzner Cloud API Token
+# Create one at: https://console.hetzner.cloud/
+hcloud_token = "your-hcloud-token-here"
+
+# Cloudflare API Token
+# Needs "Zone:DNS:Edit" permissions for your domain
+cloudflare_api_token = "your-cloudflare-token-here"
+
+# Email for Let's Encrypt notifications
+letsencrypt_email = "admin@your-domain.com"
+
+# ------------------------------------------------------------------------------
+# OPTIONAL CONFIGURATION (Defaults shown)
+# ------------------------------------------------------------------------------
+
+# Base domain for your cluster
+# This drives all naming:
+# - Cluster Name: "acme-cluster" (derived from "acme.com")
+# - API Endpoint: "kube.acme.com"
+# - Gateway Name: "acme-gateway"
+# - Certificates: "*.acme.com"
+domain_name = "acme.com"

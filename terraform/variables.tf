@@ -15,3 +15,8 @@ variable "cloudflare_api_token" {
   sensitive   = true
 }
 
+variable "domain_name" {
+  type        = string
+  description = "Base domain for the cluster (e.g., 'deliberate.cloud', 'acme.com'). Used for DNS, TLS, and resource naming."
+  default     = "deliberate.cloud"
+}

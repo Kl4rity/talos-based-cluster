@@ -1,3 +1,13 @@
+locals {
+  # Extract the first part of the domain to use as the gateway identifier
+  # e.g., "deliberate.cloud" -> "deliberate"
+  gateway_identifier = split(".", var.domain_name)[0]
+
+  # Create a safe name for the TLS secret by replacing dots with hyphens
+  # e.g., "deliberate.cloud" -> "deliberate-cloud-tls"
+  tls_secret_name = "${replace(var.domain_name, ".", "-")}-tls"
+}
+
 # Secret for Cloudflare API Token
 resource "kubernetes_manifest" "cloudflare_api_token_secret" {
   manifest = {
@@ -47,24 +57,24 @@ resource "kubernetes_manifest" "letsencrypt_dns01_issuer" {
 }
 
 # Certificate resource to issue the wildcard certificate
-resource "kubernetes_manifest" "deliberate_cloud_certificate" {
+resource "kubernetes_manifest" "wildcard_certificate" {
   manifest = {
     apiVersion = "cert-manager.io/v1"
     kind       = "Certificate"
     metadata = {
-      name      = "deliberate-cloud-tls"
+      name      = local.tls_secret_name
       namespace = "default"
     }
     spec = {
       dnsNames = [
-        "deliberate.cloud",
-        "*.deliberate.cloud"
+        var.domain_name,
+        "*.${var.domain_name}"
       ]
       issuerRef = {
         kind = "ClusterIssuer"
         name = "letsencrypt-dns01"
       }
-      secretName = "deliberate-cloud-tls"
+      secretName = local.tls_secret_name
     }
   }
 
@@ -84,8 +94,8 @@ resource "kubernetes_manifest" "cilium_gateway" {
       gatewayClassName = "cilium"
       infrastructure = {
         annotations = {
-          "load-balancer.hetzner.cloud/location"      = "fsn1"
-          "load-balancer.hetzner.cloud/name"          = "deliberate-gateway"
+          "load-balancer.hetzner.cloud/location"           = "fsn1"
+          "load-balancer.hetzner.cloud/name"               = "${local.gateway_identifier}-gateway"
           "load-balancer.hetzner.cloud/uses-proxyprotocol" = "true"
         }
       }
@@ -94,7 +104,7 @@ resource "kubernetes_manifest" "cilium_gateway" {
           name     = "https"
           port     = 443
           protocol = "HTTPS"
-          hostname = "*.deliberate.cloud"
+          hostname = "*.${var.domain_name}"
           allowedRoutes = {
             namespaces = {
               from = "All"
@@ -106,7 +116,7 @@ resource "kubernetes_manifest" "cilium_gateway" {
               {
                 group = ""
                 kind  = "Secret"
-                name  = "deliberate-cloud-tls"
+                name  = local.tls_secret_name
               }
             ]
           }
@@ -115,7 +125,7 @@ resource "kubernetes_manifest" "cilium_gateway" {
           name     = "http"
           port     = 80
           protocol = "HTTP"
-          hostname = "*.deliberate.cloud"
+          hostname = "*.${var.domain_name}"
           allowedRoutes = {
             namespaces = {
               from = "All"

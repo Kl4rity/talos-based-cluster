@@ -16,14 +16,16 @@ provider "hcloud" {
 }
 
 module "workload_cluster" {
-  source = "./modules/workload-cluster"
+  source       = "./modules/workload-cluster"
   hcloud_token = var.hcloud_token
+  domain_name  = var.domain_name
 }
 
 module "platform_resources" {
-  source = "./modules/platform-resources"
+  source               = "./modules/platform-resources"
   letsencrypt_email    = var.letsencrypt_email
   cloudflare_api_token = var.cloudflare_api_token
+  domain_name          = var.domain_name
 
   providers = {
     kubernetes = kubernetes
