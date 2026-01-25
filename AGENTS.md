@@ -107,10 +107,10 @@ terraform/
 2.  **platform-resources**: Depends on `workload-cluster`. Configures `*.deliberate.cloud` ingress.
 
 ## Environment Variables
-Required for all operations (set in `.env` or export):
-*   `HCLOUD_TOKEN`: Hetzner Cloud API token.
-*   `LETSENCRYPT_EMAIL`: Contact email for SSL.
-*   `HETZNER_DNS_API_TOKEN`: DNS management token.
+export TF_VAR_hcloud_token="your-hcloud-token"
+export TF_VAR_letsencrypt_email="admin@your-domain.com"
+export TF_VAR_cloudflare_api_token="your-cloudflare-token"
+export TF_VAR_domain_name="your-domain.com"
 
 ## Common Workflows
 

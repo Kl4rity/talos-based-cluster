@@ -38,7 +38,7 @@ module "kubernetes" {
       name     = "control"
       type     = "cax11"
       location = "fsn1"
-      count    = 3
+      count    = 1
     }
   ]
 
