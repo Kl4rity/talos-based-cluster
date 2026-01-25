@@ -5,7 +5,7 @@ resource "kubernetes_manifest" "cloudflare_api_token_secret" {
     kind       = "Secret"
     metadata = {
       name      = "cloudflare-api-token"
-      namespace = "cert-manager"
+      namespace = "kube-system"
     }
     type = "Opaque"
     data = {
