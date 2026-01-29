@@ -20,20 +20,6 @@ tofu init
 tofu apply
 ```
 
-### Option 2: Variables File
-1. **Copy and configure variables:**
-   ```bash
-    cp terraform.tfvars.example terraform.tfvars
-    # Edit terraform.tfvars with your actual values
-    ```
-
-2. **Initialize and deploy:**
-   ```bash
-    cd terraform
-    tofu init
-    tofu apply -var-file="terraform.tfvars"
-    ```
-
 ## Required Variables
 
 | Variable | Environment Variable | Description | Sensitive |
@@ -45,50 +31,15 @@ tofu apply
 
 ## Repository Structure
 
-This is the **new unified approach**. The legacy `workload-cluster/` and `platform-resources/` directories are deprecated.
-
 ```
 talos-based-cluster/
 └── terraform/                    # 🆕 Unified configuration (use this)
     ├── main.tf                 # Root config with providers and modules
-    ├── variables.tf            # All shared variables (4 total)
-    ├── terraform.tfvars.example # Example configuration
     ├── README.md             # This documentation
     └── modules/
         ├── workload-cluster/     # Core cluster infrastructure
         └── platform-resources/   # Platform resources
-
-    # Legacy directories (can remove after successful deployment):
-    ├── workload-cluster/         # ❌ Deprecated
-    └── platform-resources/       # ❌ Deprecated
 ```
-
-## Architecture
-
-This configuration deploys:
-
-### Core Infrastructure (`modules/workload-cluster`)
-- Talos-based Kubernetes cluster on Hetzner Cloud
-- 3 control plane nodes (cax11, fsn1)
-- 2 worker nodes (cax11, fsn1)
-- Cilium CNI with Gateway API enabled
-- Cert-Manager, Metrics Server, Longhorn storage, Cluster Autoscaler
-- Hetzner CCM/CSI for cloud integration
-- **Cluster Name**: Derived from domain (e.g., `acme.com` → `acme-cluster`)
-
-### Platform Resources (`modules/platform-resources`)
-- Cilium Gateway for ingress (`*.your-domain.com`)
-- Hetzner DNS-01 certificate issuer
-- TLS certificate management via cert-manager
-- LoadBalancer configuration for external access
-- **Gateway Name**: Derived from domain (e.g., `acme.com` → `acme-gateway`)
-
-## Outputs
-
-- **Cluster Access**: `kubeconfig` and `talosconfig` files for cluster management
-- **Network**: Public/private IPs for all nodes
-- **Gateway**: External IP and configuration details
-- **Storage**: Cilium encryption details
 
 ## Extensibility
 
@@ -120,18 +71,4 @@ export TF_VAR_domain_name="your-domain.com"
 
 tofu init
 tofu apply
-```
-
-### Platform-Only Updates
-If you only need to update platform resources (after initial deployment):
-```bash
-cd terraform
-tofu apply -target=module.platform_resources
-```
-
-## Cleanup
-
-After successful deployment, you can remove legacy directories:
-```bash
-rm -rf workload-cluster platform-resources
 ```

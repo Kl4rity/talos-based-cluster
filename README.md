@@ -52,8 +52,6 @@ This is the **new unified approach**. The legacy `workload-cluster/` and `platfo
 talos-based-cluster/
 └── terraform/                    # 🆕 Unified configuration (use this)
     ├── main.tf                 # Root config with providers and modules
-    ├── variables.tf            # All shared variables (4 total)
-    ├── terraform.tfvars.example # Example configuration
     ├── README.md             # This documentation
     └── modules/
         ├── workload-cluster/     # Core cluster infrastructure
