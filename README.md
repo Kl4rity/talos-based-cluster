@@ -2,10 +2,23 @@
 
 A unified Terraform configuration for deploying a complete Kubernetes cluster on Hetzner Cloud with a single command.
 
+The goal of this repository is to create an opinionated cluster deployment which provides any interested user with a solid starting point which includes all the basics one can expect. This is a work in progress - building up from the basics to convenience features:
+
+- Compute ✅
+- DNS ✅
+- TLS Certificates ✅
+- Container Registry 🚧
+- Logging and Monitoring 🚧
+- Tracing 🚧
+- S3 Storage (Hetzner or Self-Hosted) 🚧
+- Cloud Native Postgress 🚧
+- ArgoCD? 🚧
+- ... ?
+
 ## Why Talos on Hetzner?
 
 ### Customer Demand
-Many customers prefer EU-based hosting over hyperscalers for data sovereignty and emotional reasons. Hetzner provides excellent performance with German/EU data residency.
+Many customers prefer EU-based hosting over hyperscalers for data sovereignty and emotional reasons. Hetzner provides excellent price to performance with German/EU data residency.
 
 ### Portability
 Kubernetes gives you deployment flexibility - migrate between Hetzner, Scaleway, Exoscale, or hyperscalers without reworking your K8s resources.
@@ -31,20 +44,6 @@ tofu init
 tofu apply
 ```
 
-### Option 2: Variables File
-1. **Copy and configure variables:**
-   ```bash
-    cp terraform/terraform.tfvars.example terraform/terraform.tfvars
-    # Edit terraform/terraform.tfvars with your actual values
-    ```
-
-2. **Initialize and deploy:**
-   ```bash
-    cd terraform
-    tofu init
-    tofu apply -var-file="terraform/terraform.tfvars"
-    ```
-
 ## Repository Structure
 
 This is the **new unified approach**. The legacy `workload-cluster/` and `platform-resources/` directories are deprecated.
@@ -60,30 +59,15 @@ talos-based-cluster/
         ├── workload-cluster/     # Core cluster infrastructure
         └── platform-resources/   # Platform resources
 
-    # Legacy directories (can remove after successful deployment):
-    ├── workload-cluster/         # ❌ Deprecated
-    └── platform-resources/       # ❌ Deprecated
-```
-
 ## Architecture
 
 This configuration deploys:
 
 ### Core Infrastructure (`modules/workload-cluster`)
 - Talos-based Kubernetes cluster on Hetzner Cloud
-- 3 control plane nodes (cax11, fsn1)
-- 2 worker nodes (cax11, fsn1)
+- Control plane nodes
+- Worker nodes
 - Cilium CNI with Gateway API enabled
-- Cert-Manager, Metrics Server, Longhorn storage, Cluster Autoscaler
-- Hetzner CCM/CSI for cloud integration
-- **Cluster Name**: Derived from domain (e.g., `acme.com` → `acme-cluster`)
-
-### Platform Resources (`modules/platform-resources`)
-- Cilium Gateway for ingress (`*.your-domain.com`)
-- Hetzner DNS-01 certificate issuer
-- TLS certificate management via cert-manager
-- LoadBalancer configuration for external access
-- **Gateway Name**: Derived from domain (e.g., `acme.com` → `acme-gateway`)
 
 ## Deployment Commands
 
@@ -100,13 +84,6 @@ export TF_VAR_domain_name="your-domain.com"
 
 tofu init
 tofu apply
-```
-
-### Platform-Only Updates
-If you only need to update platform resources (after initial deployment):
-```bash
-cd terraform
-tofu apply -target=module.platform_resources
 ```
 
 ## Prerequisites
