@@ -34,6 +34,7 @@ module "kubernetes" {
   cilium_gateway_api_enabled = true
   ingress_nginx_enabled      = false
   longhorn_enabled = true
+  longhorn_default_storage_class = true
 
   control_plane_nodepools = [
     {
