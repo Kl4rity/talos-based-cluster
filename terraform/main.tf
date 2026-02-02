@@ -9,7 +9,7 @@ terraform {
       version = "~> 2.32"
     }
     helm = {
-      source  = "hashicorp/helm"
+      source = "hashicorp/helm"
     }
   }
 }
@@ -39,11 +39,11 @@ module "platform_resources" {
 }
 
 provider "kubernetes" {
-  config_path = "${path.module}/modules/workload-cluster/kubeconfig"
+  config_path = "${path.module}/kubeconfig"
 }
 
 provider "helm" {
   kubernetes = {
-    config_path = "${path.module}/modules/workload-cluster/kubeconfig"
+    config_path = "${path.module}/kubeconfig"
   }
 }

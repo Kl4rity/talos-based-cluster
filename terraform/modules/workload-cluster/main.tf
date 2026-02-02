@@ -27,8 +27,7 @@ module "kubernetes" {
   cluster_kubeconfig_path  = "kubeconfig"
   cluster_talosconfig_path = "talosconfig"
 
-  cluster_domain    = var.domain_name
-  kube_api_hostname = "kube.${var.domain_name}"
+  cluster_domain = var.domain_name
 
   cert_manager_enabled       = true
   cilium_gateway_api_enabled = true
@@ -39,8 +38,8 @@ module "kubernetes" {
   control_plane_nodepools = [
     {
       name     = "control"
-      type     = "cax11"
-      location = "fsn1"
+      type     = "cx33"
+      location = "nbg1"
       count    = 1
     }
   ]
@@ -48,8 +47,8 @@ module "kubernetes" {
   worker_nodepools = [
     {
       name     = "worker"
-      type     = "cax11"
-      location = "fsn1"
+      type     = "cx33"
+      location = "nbg1"
       count    = 2
     }
   ]
