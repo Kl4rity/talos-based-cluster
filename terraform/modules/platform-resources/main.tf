@@ -163,3 +163,24 @@ resource "helm_release" "external_dns" {
     })
   ]
 }
+
+# Harbor for container registry
+resource "helm_release" "harbor" {
+  name       = "harbor"
+  repository = "https://helm.goharbor.io"
+  chart      = "harbor"
+  namespace  = "harbor"
+  version    = "1.18.2"
+  create_namespace = true
+  atomic = true
+  cleanup_on_fail = true
+
+  values = [
+    yamlencode({
+      externalUrl = "registry.deliberate.cloud"
+      trivy = {
+        enabled = true
+      }
+    })
+  ]
+}
