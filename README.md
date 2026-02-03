@@ -28,7 +28,7 @@ Hyperscalers have high margins. Hetzner offers competitive pricing while maintai
 
 ## Quick Start
 
-### Option 1: Environment Variables (Recommended)
+### Option 1: Environment Variables
 Set all required environment variables and run:
 
 ```bash
@@ -43,6 +43,16 @@ cd terraform
 tofu init
 tofu apply
 ```
+
+### Known limitations
+As of right now, deployment needs to happen in two phases on a fresh install:
+
+# Phase 1: Create the cluster
+tofu plan -target=module.workload_cluster -out=tfplan-cluster
+tofu apply tfplan-cluster
+# Phase 2: Deploy platform resources
+tofu plan -out=tfplan-platform
+tofu apply tfplan-platform
 
 ## Repository Structure
 
