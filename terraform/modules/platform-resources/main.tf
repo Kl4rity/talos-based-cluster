@@ -78,7 +78,18 @@ resource "kubernetes_manifest" "wildcard_certificate" {
     }
   }
 
-  depends_on = [kubernetes_manifest.cilium_gateway, kubernetes_manifest.letsencrypt_dns01_issuer]
+   depends_on = [kubernetes_manifest.cilium_gateway, kubernetes_manifest.letsencrypt_dns01_issuer]
+}
+
+# Patch cert-manager to use external DNS for ACME challenges
+resource "null_resource" "cert_manager_dns_patch" {
+  provisioner "local-exec" {
+    command = "kubectl patch deployment -n cert-manager cert-manager --type='json' -p='[{\"op\": \"add\", \"path\": \"/spec/template/spec/dnsConfig\", \"value\": {\"nameservers\": [\"1.1.1.1\", \"8.8.8.8\"]}}]'"
+  }
+
+  triggers = {
+    always_run = timestamp()
+  }
 }
 
 # Gateway for Cilium with TLS termination

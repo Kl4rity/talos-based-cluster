@@ -7,5 +7,9 @@ terraform {
     helm = {
       source  = "hashicorp/helm"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
   }
 }
