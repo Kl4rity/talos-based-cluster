@@ -20,3 +20,10 @@ variable "domain_name" {
   description = "Base domain for the cluster (e.g., 'deliberate.cloud', 'acme.com'). Used for DNS, TLS, and resource naming."
   default     = "deliberate.cloud"
 }
+
+variable "harbor_admin_password" {
+  type        = string
+  description = "Admin password for Harbor registry. If not provided, a secure random password will be generated."
+  sensitive   = true
+  default     = null
+}

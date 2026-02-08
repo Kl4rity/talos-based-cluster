@@ -13,3 +13,10 @@ variable "domain_name" {
   description = "Base domain for the cluster (e.g., 'deliberate.cloud')"
   type        = string
 }
+
+variable "harbor_admin_password" {
+  description = "Admin password for Harbor registry"
+  type        = string
+  sensitive   = true
+  default     = null
+}

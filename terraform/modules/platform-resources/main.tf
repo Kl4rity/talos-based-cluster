@@ -164,6 +164,19 @@ resource "helm_release" "external_dns" {
   ]
 }
 
+# Generate secure Harbor admin password if not provided
+resource "random_password" "harbor_admin_password" {
+  count = var.harbor_admin_password == null ? 1 : 0
+  
+  length           = 32
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+  min_lower        = 4
+  min_upper        = 4
+  min_numeric      = 4
+  min_special      = 4
+}
+
 # Harbor for container registry
 resource "helm_release" "harbor" {
   name       = "harbor"
@@ -175,20 +188,21 @@ resource "helm_release" "harbor" {
   atomic = true
   cleanup_on_fail = true
 
-  values = [
-    yamlencode({
-      externalUrl = "https://registry.deliberate.cloud"
-      expose = {
-        type = "clusterIP"
-        tls = {
-          enabled = false
-        }
-      }
-      trivy = {
-        enabled = true
-      }
-    })
-  ]
+   values = [
+     yamlencode({
+       externalUrl = "https://registry.deliberate.cloud"
+       expose = {
+         type = "clusterIP"
+         tls = {
+           enabled = false
+         }
+       }
+       harborAdminPassword = var.harbor_admin_password != null ? var.harbor_admin_password : random_password.harbor_admin_password[0].result
+       trivy = {
+         enabled = true
+       }
+     })
+   ]
 }
 
 # HTTPRoute for Harbor

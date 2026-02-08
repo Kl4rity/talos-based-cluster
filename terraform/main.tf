@@ -11,6 +11,10 @@ terraform {
     helm = {
       source = "hashicorp/helm"
     }
+    random = {
+      source = "hashicorp/random"
+      version = "~> 3.7"
+    }
   }
 }
 
@@ -30,6 +34,7 @@ module "platform_resources" {
   letsencrypt_email    = var.letsencrypt_email
   cloudflare_api_token = var.cloudflare_api_token
   domain_name          = var.domain_name
+  harbor_admin_password = var.harbor_admin_password
 
   providers = {
     kubernetes = kubernetes
