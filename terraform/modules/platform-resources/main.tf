@@ -15,7 +15,7 @@ resource "kubernetes_manifest" "cloudflare_api_token_secret" {
     kind       = "Secret"
     metadata = {
       name      = "cloudflare-api-token"
-      namespace = "kube-system"
+      namespace = "cert-manager"
     }
     type = "Opaque"
     data = {
@@ -177,10 +177,50 @@ resource "helm_release" "harbor" {
 
   values = [
     yamlencode({
-      externalUrl = "registry.deliberate.cloud"
+      externalUrl = "https://registry.deliberate.cloud"
+      expose = {
+        type = "clusterIP"
+        tls = {
+          enabled = false
+        }
+      }
       trivy = {
         enabled = true
       }
     })
   ]
+}
+
+# HTTPRoute for Harbor
+resource "kubernetes_manifest" "harbor_httproute" {
+  manifest = {
+    apiVersion = "gateway.networking.k8s.io/v1"
+    kind       = "HTTPRoute"
+    metadata = {
+      name      = "harbor"
+      namespace = "harbor"
+    }
+    spec = {
+      parentRefs = [
+        {
+          name      = "cilium-gateway"
+          namespace = "default"
+        }
+      ]
+      hostnames = ["registry.deliberate.cloud"]
+      rules = [
+        {
+          matches = [{ path = { type = "PathPrefix", value = "/" } }]
+          backendRefs = [
+            {
+              name = "harbor"
+              port = 80
+            }
+          ]
+        }
+      ]
+    }
+  }
+
+  depends_on = [helm_release.harbor]
 }
