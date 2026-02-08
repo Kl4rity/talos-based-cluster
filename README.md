@@ -48,11 +48,15 @@ tofu apply
 As of right now, deployment needs to happen in two phases on a fresh install:
 
 # Phase 1: Create the cluster
+```
 tofu plan -target=module.workload_cluster -out=tfplan-cluster
 tofu apply tfplan-cluster
+```
 # Phase 2: Deploy platform resources
+```
 tofu plan -out=tfplan-platform
 tofu apply tfplan-platform
+```
 
 ## Repository Structure
 

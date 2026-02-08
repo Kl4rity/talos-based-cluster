@@ -84,11 +84,12 @@ resource "kubernetes_manifest" "wildcard_certificate" {
 # Patch cert-manager to use external DNS for ACME challenges
 resource "null_resource" "cert_manager_dns_patch" {
   provisioner "local-exec" {
-    command = "kubectl patch deployment -n cert-manager cert-manager --type='json' -p='[{\"op\": \"add\", \"path\": \"/spec/template/spec/dnsConfig\", \"value\": {\"nameservers\": [\"1.1.1.1\", \"8.8.8.8\"]}}]'"
+    command = "kubectl patch deployment -n cert-manager cert-manager --type='json' -p='[{\"op\": \"add\", \"path\": \"/spec/template/spec/containers/0/args/-\", \"value\": \"--dns01-recursive-nameservers-only\"}, {\"op\": \"add\", \"path\": \"/spec/template/spec/containers/0/args/-\", \"value\": \"--dns01-recursive-nameservers=1.1.1.1:53,8.8.8.8:53\"}, {\"op\": \"add\", \"path\": \"/spec/template/spec/dnsConfig\", \"value\": {\"nameservers\": [\"1.1.1.1\", \"8.8.8.8\"]}}]'"
   }
 
   triggers = {
-    always_run = timestamp()
+    # Ensure it runs if the deployment changes or if explicitly requested
+    cert_manager_version = "v1.19.2"
   }
 }
 
