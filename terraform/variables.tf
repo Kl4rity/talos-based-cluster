@@ -15,10 +15,15 @@ variable "cloudflare_api_token" {
   sensitive   = true
 }
 
-variable "domain_name" {
-  type        = string
-  description = "Base domain for the cluster (e.g., 'deliberate.cloud', 'acme.com'). Used for DNS, TLS, and resource naming."
-  default     = "deliberate.cloud"
+variable "domains" {
+  type        = list(string)
+  description = "Domains served by this cluster. The first domain is the primary (used for naming and default routes). Each domain gets its own TLS certificate and gateway listeners."
+  default     = ["deliberate.cloud", "deliberate.tech"]
+
+  validation {
+    condition     = length(var.domains) > 0
+    error_message = "At least one domain must be provided."
+  }
 }
 
 variable "harbor_admin_password" {

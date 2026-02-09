@@ -12,7 +12,7 @@ terraform {
       source = "hashicorp/helm"
     }
     random = {
-      source = "hashicorp/random"
+      source  = "hashicorp/random"
       version = "~> 3.7"
     }
   }
@@ -25,15 +25,15 @@ provider "hcloud" {
 module "workload_cluster" {
   source               = "./modules/workload-cluster"
   hcloud_token         = var.hcloud_token
-  domain_name          = var.domain_name
+  domains              = var.domains
   cloudflare_api_token = var.cloudflare_api_token
 }
 
 module "platform_resources" {
-  source               = "./modules/platform-resources"
-  letsencrypt_email    = var.letsencrypt_email
-  cloudflare_api_token = var.cloudflare_api_token
-  domain_name          = var.domain_name
+  source                = "./modules/platform-resources"
+  letsencrypt_email     = var.letsencrypt_email
+  cloudflare_api_token  = var.cloudflare_api_token
+  domains               = var.domains
   harbor_admin_password = var.harbor_admin_password
 
   providers = {

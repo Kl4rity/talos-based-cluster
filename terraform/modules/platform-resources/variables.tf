@@ -9,9 +9,9 @@ variable "cloudflare_api_token" {
   sensitive   = true
 }
 
-variable "domain_name" {
-  description = "Base domain for the cluster (e.g., 'deliberate.cloud')"
-  type        = string
+variable "domains" {
+  description = "Domains served by this cluster. The first domain is the primary (used for naming and default routes)."
+  type        = list(string)
 }
 
 variable "harbor_admin_password" {

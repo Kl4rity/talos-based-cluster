@@ -12,9 +12,12 @@ provider "hcloud" {
 }
 
 locals {
+  # Use the first domain as the primary for naming
+  primary_domain = var.domains[0]
+
   # Extract the first part of the domain to use as the cluster identifier
   # e.g., "deliberate.cloud" -> "deliberate"
-  cluster_identifier = split(".", var.domain_name)[0]
+  cluster_identifier = split(".", local.primary_domain)[0]
 }
 
 module "kubernetes" {
@@ -27,12 +30,12 @@ module "kubernetes" {
   cluster_kubeconfig_path  = "kubeconfig"
   cluster_talosconfig_path = "talosconfig"
 
-  cluster_domain = var.domain_name
+  cluster_domain = local.primary_domain
 
-  cert_manager_enabled       = true
-  cilium_gateway_api_enabled = true
-  ingress_nginx_enabled      = false
-  longhorn_enabled = true
+  cert_manager_enabled           = true
+  cilium_gateway_api_enabled     = true
+  ingress_nginx_enabled          = false
+  longhorn_enabled               = true
   longhorn_default_storage_class = true
 
   control_plane_nodepools = [

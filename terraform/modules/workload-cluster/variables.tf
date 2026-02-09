@@ -4,9 +4,9 @@ variable "hcloud_token" {
   sensitive   = true
 }
 
-variable "domain_name" {
-  type        = string
-  description = "Base domain for the cluster (e.g., 'deliberate.cloud')"
+variable "domains" {
+  type        = list(string)
+  description = "Domains served by this cluster. The first domain is the primary (used for cluster naming)."
 }
 
 variable "cloudflare_api_token" {

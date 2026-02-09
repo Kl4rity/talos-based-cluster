@@ -5,7 +5,7 @@ terraform {
       version = "~> 2.32"
     }
     helm = {
-      source  = "hashicorp/helm"
+      source = "hashicorp/helm"
     }
     null = {
       source  = "hashicorp/null"

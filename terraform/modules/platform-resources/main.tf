@@ -1,11 +1,19 @@
 locals {
-  # Extract the first part of the domain to use as the gateway identifier
-  # e.g., "deliberate.cloud" -> "deliberate"
-  gateway_identifier = split(".", var.domain_name)[0]
+  # Use the first domain as the primary for naming conventions
+  primary_domain = var.domains[0]
 
-  # Create a safe name for the TLS secret by replacing dots with hyphens
-  # e.g., "deliberate.cloud" -> "deliberate-cloud-tls"
-  tls_secret_name = "${replace(var.domain_name, ".", "-")}-tls"
+  # Extract the first part of the primary domain to use as the gateway identifier
+  # e.g., "deliberate.cloud" -> "deliberate"
+  gateway_identifier = split(".", local.primary_domain)[0]
+
+  # Build a map of per-domain helpers keyed by domain name
+  # e.g., "deliberate.cloud" -> { tls_secret_name = "deliberate-cloud-tls", safe_name = "deliberate-cloud" }
+  domain_config = {
+    for domain in var.domains : domain => {
+      tls_secret_name = "${replace(domain, ".", "-")}-tls"
+      safe_name       = replace(domain, ".", "-")
+    }
+  }
 }
 
 # Secret for Cloudflare API Token
@@ -56,29 +64,31 @@ resource "kubernetes_manifest" "letsencrypt_dns01_issuer" {
   }
 }
 
-# Certificate resource to issue the wildcard certificate
+# Wildcard certificate for each domain
 resource "kubernetes_manifest" "wildcard_certificate" {
+  for_each = local.domain_config
+
   manifest = {
     apiVersion = "cert-manager.io/v1"
     kind       = "Certificate"
     metadata = {
-      name      = local.tls_secret_name
+      name      = each.value.tls_secret_name
       namespace = "default"
     }
     spec = {
       dnsNames = [
-        var.domain_name,
-        "*.${var.domain_name}"
+        each.key,
+        "*.${each.key}"
       ]
       issuerRef = {
         kind = "ClusterIssuer"
         name = "letsencrypt-dns01"
       }
-      secretName = local.tls_secret_name
+      secretName = each.value.tls_secret_name
     }
   }
 
-   depends_on = [kubernetes_manifest.cilium_gateway, kubernetes_manifest.letsencrypt_dns01_issuer]
+  depends_on = [kubernetes_manifest.cilium_gateway, kubernetes_manifest.letsencrypt_dns01_issuer]
 }
 
 # Patch cert-manager to use external DNS for ACME challenges
@@ -111,40 +121,74 @@ resource "kubernetes_manifest" "cilium_gateway" {
           "load-balancer.hetzner.cloud/uses-proxyprotocol" = "true"
         }
       }
-      listeners = [
-        {
-          name     = "https"
-          port     = 443
-          protocol = "HTTPS"
-          hostname = "*.${var.domain_name}"
-          allowedRoutes = {
-            namespaces = {
-              from = "All"
-            }
-          }
-          tls = {
-            mode = "Terminate"
-            certificateRefs = [
-              {
-                group = ""
-                kind  = "Secret"
-                name  = local.tls_secret_name
+      listeners = flatten([
+        for domain, config in local.domain_config : [
+          {
+            name     = "https-${config.safe_name}"
+            port     = 443
+            protocol = "HTTPS"
+            hostname = "*.${domain}"
+            allowedRoutes = {
+              namespaces = {
+                from = "All"
               }
-            ]
-          }
-        },
-        {
-          name     = "http"
-          port     = 80
-          protocol = "HTTP"
-          hostname = "*.${var.domain_name}"
-          allowedRoutes = {
-            namespaces = {
-              from = "All"
+            }
+            tls = {
+              mode = "Terminate"
+              certificateRefs = [
+                {
+                  group = ""
+                  kind  = "Secret"
+                  name  = config.tls_secret_name
+                }
+              ]
+            }
+          },
+          {
+            name     = "http-${config.safe_name}"
+            port     = 80
+            protocol = "HTTP"
+            hostname = "*.${domain}"
+            allowedRoutes = {
+              namespaces = {
+                from = "All"
+              }
+            }
+          },
+          {
+            name     = "https-${config.safe_name}-apex"
+            port     = 443
+            protocol = "HTTPS"
+            hostname = domain
+            allowedRoutes = {
+              namespaces = {
+                from = "All"
+              }
+            }
+            tls = {
+              mode = "Terminate"
+              certificateRefs = [
+                {
+                  group = ""
+                  kind  = "Secret"
+                  name  = config.tls_secret_name
+                }
+              ]
+            }
+          },
+          {
+            name     = "http-${config.safe_name}-apex"
+            port     = 80
+            protocol = "HTTP"
+            hostname = domain
+            allowedRoutes = {
+              namespaces = {
+                from = "All"
+              }
             }
           }
-        }
-      ]
+        ]
+      ])
     }
   }
 }
@@ -162,7 +206,7 @@ resource "helm_release" "external_dns" {
       provider = "cloudflare"
       env = [
         {
-          name = "CF_API_TOKEN"
+          name  = "CF_API_TOKEN"
           value = var.cloudflare_api_token
         }
       ]
@@ -179,7 +223,7 @@ resource "helm_release" "external_dns" {
 # Generate secure Harbor admin password if not provided
 resource "random_password" "harbor_admin_password" {
   count = var.harbor_admin_password == null ? 1 : 0
-  
+
   length           = 32
   special          = true
   override_special = "!#$%&*()-_=+[]{}<>:?"
@@ -191,30 +235,30 @@ resource "random_password" "harbor_admin_password" {
 
 # Harbor for container registry
 resource "helm_release" "harbor" {
-  name       = "harbor"
-  repository = "https://helm.goharbor.io"
-  chart      = "harbor"
-  namespace  = "harbor"
-  version    = "1.18.2"
+  name             = "harbor"
+  repository       = "https://helm.goharbor.io"
+  chart            = "harbor"
+  namespace        = "harbor"
+  version          = "1.18.2"
   create_namespace = true
-  atomic = true
-  cleanup_on_fail = true
+  atomic           = true
+  cleanup_on_fail  = true
 
-   values = [
-     yamlencode({
-       externalUrl = "https://registry.deliberate.cloud"
-       expose = {
-         type = "clusterIP"
-         tls = {
-           enabled = false
-         }
-       }
-       harborAdminPassword = var.harbor_admin_password != null ? var.harbor_admin_password : random_password.harbor_admin_password[0].result
-       trivy = {
-         enabled = true
-       }
-     })
-   ]
+  values = [
+    yamlencode({
+      externalUrl = "https://registry.${local.primary_domain}"
+      expose = {
+        type = "clusterIP"
+        tls = {
+          enabled = false
+        }
+      }
+      harborAdminPassword = var.harbor_admin_password != null ? var.harbor_admin_password : random_password.harbor_admin_password[0].result
+      trivy = {
+        enabled = true
+      }
+    })
+  ]
 }
 
 # HTTPRoute for Harbor
@@ -233,7 +277,7 @@ resource "kubernetes_manifest" "harbor_httproute" {
           namespace = "default"
         }
       ]
-      hostnames = ["registry.deliberate.cloud"]
+      hostnames = ["registry.${local.primary_domain}"]
       rules = [
         {
           matches = [{ path = { type = "PathPrefix", value = "/" } }]
