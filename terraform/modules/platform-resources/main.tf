@@ -216,13 +216,32 @@ resource "helm_release" "external_dns" {
         "service",
         "ingress"
       ]
+      extraArgs = [
+        "--metrics-address=:7979"
+      ]
+      serviceMonitor = {
+        enabled = true
+      }
     })
   ]
 }
 
 # Generate secure Harbor admin password if not provided
 resource "random_password" "harbor_admin_password" {
-  count = var.harbor_admin_password == null ? 1 : 0
+  count = (var.enable_harbor && var.harbor_admin_password == null) ? 1 : 0
+
+  length           = 32
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+  min_lower        = 4
+  min_upper        = 4
+  min_numeric      = 4
+  min_special      = 4
+}
+
+# Generate secure Grafana admin password if not provided
+resource "random_password" "grafana_admin_password" {
+  count = var.grafana_admin_password == null ? 1 : 0
 
   length           = 32
   special          = true
@@ -235,6 +254,7 @@ resource "random_password" "harbor_admin_password" {
 
 # Harbor for container registry
 resource "helm_release" "harbor" {
+  count            = var.enable_harbor ? 1 : 0
   name             = "harbor"
   repository       = "https://helm.goharbor.io"
   chart            = "harbor"
@@ -257,12 +277,19 @@ resource "helm_release" "harbor" {
       trivy = {
         enabled = true
       }
+      metrics = {
+        enabled = true
+        serviceMonitor = {
+          enabled = true
+        }
+      }
     })
   ]
 }
 
 # HTTPRoute for Harbor
 resource "kubernetes_manifest" "harbor_httproute" {
+  count = var.enable_harbor ? 1 : 0
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "HTTPRoute"
@@ -293,4 +320,153 @@ resource "kubernetes_manifest" "harbor_httproute" {
   }
 
   depends_on = [helm_release.harbor]
+}
+
+# Monitoring: Prometheus & Grafana
+resource "helm_release" "prometheus_stack" {
+  name             = "kube-prometheus-stack"
+  repository       = "https://prometheus-community.github.io/helm-charts"
+  chart            = "kube-prometheus-stack"
+  namespace        = "monitoring"
+  create_namespace = true
+  version          = "69.6.0"
+
+  values = [
+    yamlencode({
+      grafana = {
+        enabled = true
+        adminPassword = var.grafana_admin_password != null ? var.grafana_admin_password : random_password.grafana_admin_password[0].result
+        "grafana.ini" = {
+          server = {
+            domain = "grafana.${local.primary_domain}"
+            root_url = "https://grafana.${local.primary_domain}"
+            serve_from_sub_path = false
+          }
+        }
+        additionalDataSources = [
+          {
+            name   = "Loki"
+            type   = "loki"
+            url    = "http://loki-stack.logging.svc.${local.primary_domain}:3100"
+            access = "proxy"
+          }
+        ]
+      }
+      prometheus = {
+        prometheusSpec = {
+          serviceMonitorSelectorNilUsesHelmValues = false
+          podMonitorSelectorNilUsesHelmValues     = false
+          retention = "10d"
+          storageSpec = {
+            volumeClaimTemplate = {
+              spec = {
+                accessModes = ["ReadWriteOnce"]
+                resources = {
+                  requests = {
+                    storage = "10Gi"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    })
+  ]
+}
+
+# HTTPRoute for Grafana
+resource "kubernetes_manifest" "grafana_httproute" {
+  manifest = {
+    apiVersion = "gateway.networking.k8s.io/v1"
+    kind       = "HTTPRoute"
+    metadata = {
+      name      = "grafana"
+      namespace = "monitoring"
+    }
+    spec = {
+      parentRefs = [
+        {
+          name      = "cilium-gateway"
+          namespace = "default"
+        }
+      ]
+      hostnames = ["grafana.${local.primary_domain}"]
+      rules = [
+        {
+          matches = [{ path = { type = "PathPrefix", value = "/" } }]
+          backendRefs = [
+            {
+              name = "kube-prometheus-stack-grafana"
+              port = 80
+            }
+          ]
+        }
+      ]
+    }
+  }
+
+  depends_on = [helm_release.prometheus_stack]
+}
+
+# Logging: Loki & Promtail
+resource "kubernetes_namespace" "logging" {
+  metadata {
+    name = "logging"
+    labels = {
+      "pod-security.kubernetes.io/enforce" = "privileged"
+    }
+  }
+}
+
+resource "helm_release" "loki_stack" {
+  name             = "loki-stack"
+  repository       = "https://grafana.github.io/helm-charts"
+  chart            = "loki-stack"
+  namespace        = kubernetes_namespace.logging.metadata[0].name
+  create_namespace = false
+  version          = "2.10.2"
+
+  values = [
+    yamlencode({
+      loki = {
+        enabled = true
+        persistence = {
+          enabled = true
+          size    = "10Gi"
+        }
+      }
+      promtail = {
+        enabled = true
+        config = {
+          clients = [{
+            url = "http://loki-stack:3100/loki/api/v1/push"
+          }]
+          snippets = {
+            extraRelabelConfigs = [
+              {
+                source_labels = ["__meta_kubernetes_pod_node_name"]
+                target_label  = "__host__"
+              }
+            ]
+          }
+        }
+        extraVolumes = [
+          {
+            name = "vlog"
+            hostPath = {
+              path = "/var/log"
+            }
+          }
+        ]
+        extraVolumeMounts = [
+          {
+            name      = "vlog"
+            mountPath = "/var/log"
+            readOnly  = true
+          }
+        ]
+      }
+    })
+  ]
 }

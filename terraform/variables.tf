@@ -32,3 +32,16 @@ variable "harbor_admin_password" {
   sensitive   = true
   default     = null
 }
+
+variable "enable_harbor" {
+  type        = bool
+  description = "Enable Harbor container registry deployment."
+  default     = true
+}
+
+variable "grafana_admin_password" {
+  type        = string
+  description = "Admin password for Grafana. If not provided, a secure random password will be generated."
+  sensitive   = true
+  default     = null
+}
