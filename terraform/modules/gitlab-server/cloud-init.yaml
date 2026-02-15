@@ -65,16 +65,13 @@ write_files:
 
       echo "Volume mounted successfully"
 
-      # Install GitLab
-      echo "Installing GitLab CE..."
-      curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | bash
+      # Prepare GitLab configuration
+      mkdir -p /etc/gitlab
+      chmod 775 /etc/gitlab
 
-      # Install GitLab without setting password via environment (special chars cause issues)
-      EXTERNAL_URL="${gitlab_url}" apt-get install -y gitlab-ce
-
-      # Configure GitLab Registry and settings
-      cat >> /etc/gitlab/gitlab.rb <<'EOF'
-
+      # Configure GitLab Registry and settings BEFORE installation
+      # This ensures the first reconfigure uses these settings
+      cat > /etc/gitlab/gitlab.rb <<'EOF'
       # External URLs
       external_url '${gitlab_url}'
       registry_external_url '${registry_url}'
@@ -101,22 +98,43 @@ write_files:
       # Security settings - disable new user signups
       gitlab_rails['gitlab_signup_enabled'] = false
 
+      # Deterministic initial root password
+      gitlab_rails['initial_root_password'] = '${gitlab_root_password}'
+
       # Disable unused services
       mattermost['enable'] = false
       EOF
 
-      # Replace URL placeholders in gitlab.rb
-      sed -i "s|\${gitlab_url}|${gitlab_url}|g" /etc/gitlab/gitlab.rb
-      sed -i "s|\${registry_url}|${registry_url}|g" /etc/gitlab/gitlab.rb
+      # Install GitLab
+      echo "Installing GitLab CE..."
+      curl -s https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | bash
+
+      # Install GitLab with explicit initial root password environment variable
+      # This is the most reliable way to set the initial password during installation
+      export GITLAB_ROOT_PASSWORD="${gitlab_root_password}"
+      EXTERNAL_URL="${gitlab_url}" apt-get install -y gitlab-ce
+
+      # Replace URL placeholders in gitlab.rb (Note: Terraform handles this, so these are extra safety or can be removed)
+      # sed -i "s|\${gitlab_url}|${gitlab_url}|g" /etc/gitlab/gitlab.rb
+      # sed -i "s|\${registry_url}|${registry_url}|g" /etc/gitlab/gitlab.rb
 
       # Initial reconfigure to set up GitLab
       gitlab-ctl reconfigure
 
-      # Set root password using gitlab-rake (handles special characters correctly)
-      gitlab-rake "gitlab:password:reset[root]" <<PWDEOF
-${gitlab_root_password}
-${gitlab_root_password}
-PWDEOF
+      # Wait for GitLab to be ready
+      echo "Waiting for GitLab services to start..."
+      sleep 30
+
+      # Explicitly disable signup via rails runner to ensure it's in the database
+      # Sometimes the gitlab.rb setting is not picked up if the database was already initialized
+      echo "Disabling signup in database..."
+      gitlab-rails runner "Gitlab::CurrentSettings.update!(signup_enabled: false)"
+
+      # Set root password using gitlab-rake (handles special characters correctly by using quoted heredoc)
+      gitlab-rake "gitlab:password:reset[root]" <<'PWDEOF'
+      ${gitlab_root_password}
+      ${gitlab_root_password}
+      PWDEOF
 
       # Enable Let's Encrypt directly
       echo "Enabling Let's Encrypt..."
@@ -136,6 +154,8 @@ PWDEOF
       echo "Username: root"
 
 runcmd:
+  - [ sed, -i, 's/^#\?PermitRootLogin.*/PermitRootLogin yes/', /etc/ssh/sshd_config ]
+  - [ systemctl, reload, ssh ]
   - /etc/gitlab-setup.sh
 
 final_message: "GitLab server is ready!"
