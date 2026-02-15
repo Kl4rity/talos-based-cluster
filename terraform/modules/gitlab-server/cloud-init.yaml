@@ -125,10 +125,10 @@ write_files:
       echo "Waiting for GitLab services to start..."
       sleep 30
 
-      # Explicitly disable signup via rails runner to ensure it's in the database
+      # Explicitly disable signup and set runner registration token via rails runner
       # Sometimes the gitlab.rb setting is not picked up if the database was already initialized
-      echo "Disabling signup in database..."
-      gitlab-rails runner "Gitlab::CurrentSettings.update!(signup_enabled: false)"
+      echo "Configuring GitLab settings in database..."
+      gitlab-rails runner "Gitlab::CurrentSettings.update!(signup_enabled: false, allow_runner_registration_token: true, shared_runners_registration_token: '${runner_registration_token}')"
 
       # Set root password using gitlab-rake (handles special characters correctly by using quoted heredoc)
       gitlab-rake "gitlab:password:reset[root]" <<'PWDEOF'

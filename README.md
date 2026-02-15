@@ -8,7 +8,7 @@ The goal of this repository is to create an opinionated cluster deployment which
 - DNS ✅
 - TLS Certificates ✅
 - Container Registry (GitLab CE) ✅
--- Register Gitlab Runners 🚧
+-- Register Gitlab Runners ✅
 - Logging and Monitoring ✅
 - Tracing ✅
 - GlitchTip or BugSink for Error Tracking. 🚧
@@ -74,15 +74,34 @@ talos-based-cluster/
         ├── workload-cluster/     # Core cluster infrastructure
         └── platform-resources/   # Platform resources
 
+### Platform Services
+- GitLab CE (Container Registry & CI/CD)
+- GitLab Runners (Automatically registered on the Kubernetes cluster)
+- Prometheus & Grafana (Monitoring)
+- Loki & Promtail (Logging)
+- Tempo (Tracing)
+
 ## Architecture
 
 This configuration deploys:
+
+### GitLab Instance (`modules/gitlab-server`)
+- Dedicated Hetzner VM running GitLab CE.
+- Automatically configured with Let's Encrypt TLS.
+- Integrated Container Registry.
+- Shared Runner Registration Token pre-configured in the database.
 
 ### Core Infrastructure (`modules/workload-cluster`)
 - Talos-based Kubernetes cluster on Hetzner Cloud
 - Control plane nodes
 - Worker nodes
 - Cilium CNI with Gateway API enabled
+
+### Platform Resources (`modules/platform-resources`)
+- Ingress Gateway (Cilium)
+- Cert-Manager for TLS certificates
+- Monitoring and Logging stack
+- **GitLab Runner**: Deployed via Helm into the cluster, automatically connecting back to the GitLab instance using the shared registration token.
 
 ## Deployment Commands
 

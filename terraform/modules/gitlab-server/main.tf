@@ -12,6 +12,13 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 4.0"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.32"
+    }
+    helm = {
+      source = "hashicorp/helm"
+    }
   }
 }
 
@@ -41,11 +48,12 @@ data "cloudinit_config" "gitlab" {
   part {
     content_type = "text/cloud-config"
     content = templatefile("${path.module}/cloud-init.yaml", {
-      gitlab_url           = local.gitlab_url
-      registry_url         = local.registry_url
-      gitlab_root_password = var.gitlab_root_password
-      root_password        = var.root_password
-      letsencrypt_email    = var.letsencrypt_email
+      gitlab_url                = local.gitlab_url
+      registry_url              = local.registry_url
+      gitlab_root_password      = var.gitlab_root_password
+      root_password             = var.root_password
+      letsencrypt_email         = var.letsencrypt_email
+      runner_registration_token = var.runner_registration_token
     })
   }
 }
@@ -147,4 +155,38 @@ resource "cloudflare_record" "registry" {
   proxied = false
 
   comment = "GitLab Container Registry managed by Terraform"
+}
+
+# GitLab Runner deployed on the Kubernetes cluster
+resource "helm_release" "gitlab_runner" {
+  name             = "gitlab-runner"
+  repository       = "https://charts.gitlab.io"
+  chart            = "gitlab-runner"
+  namespace        = "gitlab-runner"
+  create_namespace = true
+  version          = "0.72.1"
+
+  values = [
+    yamlencode({
+      gitlabUrl = local.gitlab_url
+      runnerRegistrationToken = var.runner_registration_token
+      rbac = {
+        create = true
+      }
+      runners = {
+        privileged = true
+        tags = "kubernetes,cluster"
+        config = <<-EOT
+          [[runners]]
+            [runners.kubernetes]
+              namespace = "gitlab-runner"
+              image = "ubuntu:22.04"
+              privileged = true
+        EOT
+      }
+    })
+  ]
+
+  # Wait for GitLab server to be somewhat ready, though the runner will retry
+  depends_on = [hcloud_server.gitlab, cloudflare_record.gitlab]
 }

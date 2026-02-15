@@ -43,3 +43,9 @@ variable "letsencrypt_email" {
   type        = string
   description = "Email for Let's Encrypt certificates"
 }
+
+variable "runner_registration_token" {
+  type        = string
+  description = "Registration token for GitLab Runners"
+  sensitive   = true
+}

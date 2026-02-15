@@ -67,6 +67,14 @@ resource "random_password" "gitlab_server_root_password" {
   min_special      = 4
 }
 
+# Generate secure GitLab runner registration token
+resource "random_password" "gitlab_runner_registration_token" {
+  count = var.enable_gitlab ? 1 : 0
+
+  length  = 32
+  special = false
+}
+
 module "gitlab_server" {
   count = var.enable_gitlab ? 1 : 0
 
@@ -77,11 +85,14 @@ module "gitlab_server" {
   location             = var.gitlab_server_location
   volume_size          = var.gitlab_volume_size
   gitlab_root_password = var.gitlab_root_password != null ? var.gitlab_root_password : random_password.gitlab_root_password[0].result
-  root_password        = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : random_password.gitlab_server_root_password[0].result
-  letsencrypt_email    = var.letsencrypt_email
+  root_password             = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : random_password.gitlab_server_root_password[0].result
+  letsencrypt_email         = var.letsencrypt_email
+  runner_registration_token = random_password.gitlab_runner_registration_token[0].result
 
   providers = {
     cloudflare = cloudflare
+    kubernetes = kubernetes
+    helm       = helm
   }
 }
 
@@ -134,5 +145,11 @@ output "gitlab_root_password" {
 output "gitlab_server_root_password" {
   description = "GitLab server root password for console access (if auto-generated)"
   value       = var.enable_gitlab && var.gitlab_server_root_password == null ? random_password.gitlab_server_root_password[0].result : "User provided - check your secrets"
+  sensitive   = true
+}
+
+output "gitlab_runner_registration_token" {
+  description = "GitLab runner registration token"
+  value       = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : null
   sensitive   = true
 }
