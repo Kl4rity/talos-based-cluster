@@ -114,16 +114,6 @@ resource "hcloud_firewall" "gitlab" {
   rule {
     direction = "in"
     protocol  = "tcp"
-    port      = "22"
-    source_ips = [
-      "0.0.0.0/0",
-      "::/0"
-    ]
-  }
-
-  rule {
-    direction = "in"
-    protocol  = "tcp"
     port      = "2222"
     source_ips = [
       "0.0.0.0/0",

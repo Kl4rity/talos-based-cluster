@@ -1,7 +1,25 @@
 #cloud-config
+package_update: true
+package_upgrade: true
+
 packages:
   - docker.io
   - docker-compose-v2
+  - unattended-upgrades
+  - fail2ban
+  - curl
+  - ca-certificates
+  - dnsutils
+
+# Configure automatic security updates and reboots for patches
+apt:
+  conf: |
+    APT::Periodic::Update-Package-Lists "1";
+    APT::Periodic::Unattended-Upgrade "1";
+    APT::Periodic::AutocleanInterval "7";
+    Unattended-Upgrade::Automatic-Reboot "true";
+    Unattended-Upgrade::Automatic-Reboot-Time "03:00";
+    Unattended-Upgrade::Remove-Unused-Dependencies "true";
 
 # Set root password for console access
 chpasswd:
@@ -10,6 +28,23 @@ chpasswd:
   expire: false
 
 write_files:
+  - path: /etc/systemd/system/gitlab-docker.service
+    content: |
+      [Unit]
+      Description=GitLab Docker Compose Service
+      Requires=docker.service var-lib-gitlab.mount
+      After=docker.service var-lib-gitlab.mount
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/etc/gitlab
+      ExecStart=/usr/bin/docker compose up -d
+      ExecStop=/usr/bin/docker compose stop
+
+      [Install]
+      WantedBy=multi-user.target
+
   - path: /etc/gitlab/docker-compose.yml
     content: |
       services:
@@ -39,9 +74,17 @@ write_files:
           shm_size: '256m'
 
 runcmd:
+  - [ systemctl, stop, ssh ]
+  - [ systemctl, disable, ssh ]
+  - [ sysctl, -w, net.ipv4.conf.all.rp_filter=1 ]
+  - [ sysctl, -w, net.ipv4.conf.all.accept_source_route=0 ]
+  - [ sysctl, -w, net.ipv4.conf.all.send_redirects=0 ]
+  - [ sysctl, -w, net.ipv4.icmp_echo_ignore_broadcasts=1 ]
   - mkdir -p /var/lib/gitlab
   - until mount "/dev/disk/by-id/scsi-0HC_Volume_${volume_id}" /var/lib/gitlab; do sleep 1; done
   - mkdir -p /var/lib/gitlab/config /var/lib/gitlab/logs /var/lib/gitlab/data
-  - docker compose -f /etc/gitlab/docker-compose.yml up -d
+  - systemctl enable docker
+  - systemctl enable gitlab-docker.service
+  - systemctl start gitlab-docker.service
 
 final_message: "GitLab is starting up in a container!"
