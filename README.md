@@ -12,9 +12,11 @@ The goal of this repository is to create an opinionated cluster deployment which
 -- Update 2026-02-14: Harbor is actually not easy to get to work at all. We need to deal with the underlying nodes needing to interpret the DNS name differently than the outside world.
 -- The key terms here are "hairpinning", "split-horizon" and the fact that non-tls connections are untrusted by containerd - which, of course, we'd have http inside of the cluster as we can't easily get a signed certificate.
 -- All in all very hard to get right and I haven't managed yet.
+-- Thinking of Gitlab-CE for easy Container Registry and CI/CD in a familiar environment for better adoption -> but NAT challenges remain. Open for suggestions / help!
 - Logging and Monitoring ✅
 - Tracing ✅
-- S3 Storage (Hetzner or Self-Hosted) 🚧
+- GlitchTip or BugSink for Error Tracking. 🚧
+- S3 Storage (Hetzner or Self-Hosted) - would just document how to use Hetzner's from an application-deployment. 🚧
 - Cloud Native Postgress 🚧
 - ArgoCD? 🚧
 - Expose Docs as simple webapp to access after deployment - docs.{primary-domain} - linking to the deployed services and provide a quickstart / getting started guide. 🚧

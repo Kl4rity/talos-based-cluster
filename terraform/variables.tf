@@ -35,8 +35,8 @@ variable "harbor_admin_password" {
 
 variable "enable_harbor" {
   type        = bool
-  description = "Enable Harbor container registry deployment."
-  default     = true
+  description = "Enable Harbor container registry deployment. (WARNING!) Disabled by default as cluster-internal access is an unsolved issue!"
+  default     = false # Disabled as cluster-internal access is an unsolved issue - please reference README.md for description
 }
 
 variable "grafana_admin_password" {
