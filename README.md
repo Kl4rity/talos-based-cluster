@@ -11,12 +11,13 @@ The goal of this repository is to create an opinionated cluster deployment which
 -- 🚧 Notes: Deployment and certificate should work. Pulling with a deployment doesn't quite work. Fails with auth issues despite secrets being present. - WIP.)
 -- Update 2026-02-14: Harbor is actually not easy to get to work at all. We need to deal with the underlying nodes needing to interpret the DNS name differently than the outside world.
 -- The key terms here are "hairpinning", "split-horizon" and the fact that non-tls connections are untrusted by containerd - which, of course, we'd have http inside of the cluster as we can't easily get a signed certificate.
--- All in all very hard to get right and I haven't managed yet (Clemens).
+-- All in all very hard to get right and I haven't managed yet.
 - Logging and Monitoring ✅
-- Tracing 🚧
+- Tracing ✅
 - S3 Storage (Hetzner or Self-Hosted) 🚧
 - Cloud Native Postgress 🚧
 - ArgoCD? 🚧
+- Expose Docs as simple webapp to access after deployment - docs.{primary-domain} - linking to the deployed services and provide a quickstart / getting started guide. 🚧
 - ... ?
 
 ## Why Talos on Hetzner?
@@ -41,6 +42,8 @@ export TF_VAR_hcloud_token="your-hcloud-token"
 export TF_VAR_letsencrypt_email="admin@your-domain.com"
 export TF_VAR_cloudflare_api_token="your-cloudflare-token"
 export TF_VAR_domain_name="your-domain.com"
+export TF_VAR_harbor_admin_password="YourAdminPwOrRandom"
+export TF_VAR_enable_harbor="false"
 
 # Deploy
 cd terraform
