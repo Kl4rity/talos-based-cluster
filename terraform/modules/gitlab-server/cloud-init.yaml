@@ -2,6 +2,15 @@
 package_update: true
 package_upgrade: true
 
+fs_setup:
+  - label: gitlab-data
+    filesystem: ext4
+    device: /dev/disk/by-id/scsi-0HC_Volume_${volume_id}
+    overwrite: false
+
+mounts:
+  - [ "/dev/disk/by-id/scsi-0HC_Volume_${volume_id}", "/var/lib/gitlab", "ext4", "discard,nofail,defaults", "0", "0" ]
+
 packages:
   - docker.io
   - docker-compose-v2
@@ -53,14 +62,20 @@ write_files:
           restart: always
           hostname: '${gitlab_hostname}'
           environment:
-            GITLAB_ROOT_PASSWORD: '${gitlab_root_password}'
             GITLAB_OMNIBUS_CONFIG: |
               external_url '${gitlab_url}'
               registry_external_url '${registry_url}'
+              
+              # Initial Setup
+              gitlab_rails['initial_root_password'] = '${gitlab_root_password}'
               gitlab_rails['gitlab_signup_enabled'] = false
               gitlab_rails['signup_enabled'] = false
+              
+              # Runner Registration
               gitlab_rails['allow_runner_registration_token'] = true
               gitlab_rails['shared_runners_registration_token'] = '${runner_registration_token}'
+              
+              # TLS / Let's Encrypt
               letsencrypt['enable'] = true
               letsencrypt['contact_emails'] = ['${letsencrypt_email}']
           ports:
@@ -71,7 +86,7 @@ write_files:
             - '/var/lib/gitlab/config:/etc/gitlab'
             - '/var/lib/gitlab/logs:/var/log/gitlab'
             - '/var/lib/gitlab/data:/var/opt/gitlab'
-          shm_size: '256m'
+          shm_size: '512m'
 
 runcmd:
   - [ systemctl, stop, ssh ]
@@ -80,8 +95,6 @@ runcmd:
   - [ sysctl, -w, net.ipv4.conf.all.accept_source_route=0 ]
   - [ sysctl, -w, net.ipv4.conf.all.send_redirects=0 ]
   - [ sysctl, -w, net.ipv4.icmp_echo_ignore_broadcasts=1 ]
-  - mkdir -p /var/lib/gitlab
-  - until mount "/dev/disk/by-id/scsi-0HC_Volume_${volume_id}" /var/lib/gitlab; do sleep 1; done
   - mkdir -p /var/lib/gitlab/config /var/lib/gitlab/logs /var/lib/gitlab/data
   - systemctl enable docker
   - systemctl enable gitlab-docker.service
