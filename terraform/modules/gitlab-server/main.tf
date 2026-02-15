@@ -48,12 +48,15 @@ data "cloudinit_config" "gitlab" {
   part {
     content_type = "text/cloud-config"
     content = templatefile("${path.module}/cloud-init.yaml", {
+      gitlab_hostname           = replace(local.gitlab_url, "https://", "")
       gitlab_url                = local.gitlab_url
       registry_url              = local.registry_url
       gitlab_root_password      = var.gitlab_root_password
       root_password             = var.root_password
       letsencrypt_email         = var.letsencrypt_email
       runner_registration_token = var.runner_registration_token
+      volume_id                 = hcloud_volume.gitlab_data.id
+      gitlab_image_tag          = var.gitlab_image_tag
     })
   }
 }
@@ -102,6 +105,26 @@ resource "hcloud_firewall" "gitlab" {
     direction = "in"
     protocol  = "tcp"
     port      = "443"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = "22"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = "2222"
     source_ips = [
       "0.0.0.0/0",
       "::/0"

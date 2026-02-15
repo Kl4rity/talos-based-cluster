@@ -70,3 +70,9 @@ variable "gitlab_server_root_password" {
   sensitive   = true
   default     = null
 }
+
+variable "gitlab_image_tag" {
+  type        = string
+  description = "Docker image tag for GitLab CE"
+  default     = "18.6.6-ce.0"
+}

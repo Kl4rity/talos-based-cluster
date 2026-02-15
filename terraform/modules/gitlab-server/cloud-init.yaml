@@ -1,161 +1,47 @@
 #cloud-config
-package_update: true
-package_upgrade: true
-
 packages:
-  - curl
-  - ca-certificates
-  - tzdata
-  - perl
-  - postfix
-  - unattended-upgrades
-  - apt-listchanges
-  - dnsutils
+  - docker.io
+  - docker-compose-v2
 
-# Set root password for console access (SSH still disabled over network)
+# Set root password for console access
 chpasswd:
   list: |
     root:${root_password}
   expire: false
 
-# Disable SSH over network for security, but allow console login
-ssh_pwauth: false
-disable_root: false
-
-# Configure automatic security updates
-apt:
-  conf: |
-    APT::Periodic::Update-Package-Lists "1";
-    APT::Periodic::Unattended-Upgrade "1";
-    APT::Periodic::AutocleanInterval "7";
-    Unattended-Upgrade::Automatic-Reboot "true";
-    Unattended-Upgrade::Automatic-Reboot-Time "03:00";
-    Unattended-Upgrade::Remove-Unused-Dependencies "true";
-
 write_files:
-  - path: /etc/gitlab-setup.sh
-    permissions: '0755'
+  - path: /etc/gitlab/docker-compose.yml
     content: |
-      #!/bin/bash
-      set -e
-
-      echo "Waiting for volume to be attached..."
-      while [ ! -e /dev/disk/by-id/scsi-0HC_Volume_* ]; do
-        sleep 2
-      done
-
-      VOLUME_DEVICE=$(ls /dev/disk/by-id/scsi-0HC_Volume_* | head -1)
-      echo "Found volume: $VOLUME_DEVICE"
-
-      # Check if volume is already formatted
-      if ! blkid $VOLUME_DEVICE; then
-        echo "Formatting volume..."
-        mkfs.ext4 -F $VOLUME_DEVICE
-      fi
-
-      # Create mount point
-      mkdir -p /var/opt/gitlab
-
-      # Mount volume
-      echo "$VOLUME_DEVICE /var/opt/gitlab ext4 discard,nofail,defaults 0 0" >> /etc/fstab
-      mount -a
-
-      # Set ownership
-      chown -R root:root /var/opt/gitlab
-
-      echo "Volume mounted successfully"
-
-      # Prepare GitLab configuration
-      mkdir -p /etc/gitlab
-      chmod 775 /etc/gitlab
-
-      # Configure GitLab Registry and settings BEFORE installation
-      # This ensures the first reconfigure uses these settings
-      cat > /etc/gitlab/gitlab.rb <<'EOF'
-      # External URLs
-      external_url '${gitlab_url}'
-      registry_external_url '${registry_url}'
-
-      # Registry settings
-      gitlab_rails['registry_enabled'] = true
-      registry['enable'] = true
-
-      # Let's Encrypt - DISABLED initially, enabled after DNS propagation
-      letsencrypt['enable'] = false
-
-      # Registry Let's Encrypt
-      registry_nginx['ssl_certificate'] = "/etc/gitlab/ssl/#{node['fqdn']}.crt"
-      registry_nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/#{node['fqdn']}.key"
-
-      # Performance settings
-      unicorn['worker_processes'] = 2
-      sidekiq['max_concurrency'] = 10
-      postgresql['shared_buffers'] = "256MB"
-
-      # Monitoring
-      prometheus_monitoring['enable'] = true
-
-      # Security settings - disable new user signups
-      gitlab_rails['gitlab_signup_enabled'] = false
-
-      # Deterministic initial root password
-      gitlab_rails['initial_root_password'] = '${gitlab_root_password}'
-
-      # Disable unused services
-      mattermost['enable'] = false
-      EOF
-
-      # Install GitLab
-      echo "Installing GitLab CE..."
-      curl -s https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | bash
-
-      # Install GitLab with explicit initial root password environment variable
-      # This is the most reliable way to set the initial password during installation
-      export GITLAB_ROOT_PASSWORD="${gitlab_root_password}"
-      EXTERNAL_URL="${gitlab_url}" apt-get install -y gitlab-ce
-
-      # Replace URL placeholders in gitlab.rb (Note: Terraform handles this, so these are extra safety or can be removed)
-      # sed -i "s|\${gitlab_url}|${gitlab_url}|g" /etc/gitlab/gitlab.rb
-      # sed -i "s|\${registry_url}|${registry_url}|g" /etc/gitlab/gitlab.rb
-
-      # Initial reconfigure to set up GitLab
-      gitlab-ctl reconfigure
-
-      # Wait for GitLab to be ready
-      echo "Waiting for GitLab services to start..."
-      sleep 30
-
-      # Explicitly disable signup and set runner registration token via rails runner
-      # Sometimes the gitlab.rb setting is not picked up if the database was already initialized
-      echo "Configuring GitLab settings in database..."
-      gitlab-rails runner "Gitlab::CurrentSettings.update!(signup_enabled: false, allow_runner_registration_token: true, shared_runners_registration_token: '${runner_registration_token}')"
-
-      # Set root password using gitlab-rake (handles special characters correctly by using quoted heredoc)
-      gitlab-rake "gitlab:password:reset[root]" <<'PWDEOF'
-      ${gitlab_root_password}
-      ${gitlab_root_password}
-      PWDEOF
-
-      # Enable Let's Encrypt directly
-      echo "Enabling Let's Encrypt..."
-      sed -i "s/letsencrypt\['enable'\] = false/letsencrypt['enable'] = true/" /etc/gitlab/gitlab.rb
-
-      # Add Let's Encrypt contact email
-      sed -i "/letsencrypt\['enable'\] = true/a letsencrypt['contact_emails'] = ['${letsencrypt_email}']\\nletsencrypt['auto_renew'] = true" /etc/gitlab/gitlab.rb
-
-      # Reconfigure GitLab with Let's Encrypt
-      echo "Starting GitLab and obtaining Let's Encrypt certificates..."
-      gitlab-ctl reconfigure
-
-      echo "Let's Encrypt certificates obtained successfully!"
-
-      echo "GitLab installation complete!"
-      echo "Access GitLab at: ${gitlab_url}"
-      echo "Username: root"
+      services:
+        gitlab:
+          image: 'gitlab/gitlab-ce:${gitlab_image_tag}'
+          restart: always
+          hostname: '${gitlab_hostname}'
+          environment:
+            GITLAB_ROOT_PASSWORD: '${gitlab_root_password}'
+            GITLAB_OMNIBUS_CONFIG: |
+              external_url '${gitlab_url}'
+              registry_external_url '${registry_url}'
+              gitlab_rails['gitlab_signup_enabled'] = false
+              gitlab_rails['signup_enabled'] = false
+              gitlab_rails['allow_runner_registration_token'] = true
+              gitlab_rails['shared_runners_registration_token'] = '${runner_registration_token}'
+              letsencrypt['enable'] = true
+              letsencrypt['contact_emails'] = ['${letsencrypt_email}']
+          ports:
+            - '80:80'
+            - '443:443'
+            - '2222:22'
+          volumes:
+            - '/var/lib/gitlab/config:/etc/gitlab'
+            - '/var/lib/gitlab/logs:/var/log/gitlab'
+            - '/var/lib/gitlab/data:/var/opt/gitlab'
+          shm_size: '256m'
 
 runcmd:
-  - [ sed, -i, 's/^#\?PermitRootLogin.*/PermitRootLogin yes/', /etc/ssh/sshd_config ]
-  - [ systemctl, reload, ssh ]
-  - /etc/gitlab-setup.sh
+  - mkdir -p /var/lib/gitlab
+  - until mount "/dev/disk/by-id/scsi-0HC_Volume_${volume_id}" /var/lib/gitlab; do sleep 1; done
+  - mkdir -p /var/lib/gitlab/config /var/lib/gitlab/logs /var/lib/gitlab/data
+  - docker compose -f /etc/gitlab/docker-compose.yml up -d
 
-final_message: "GitLab server is ready!"
+final_message: "GitLab is starting up in a container!"

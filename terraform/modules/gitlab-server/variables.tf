@@ -49,3 +49,9 @@ variable "runner_registration_token" {
   description = "Registration token for GitLab Runners"
   sensitive   = true
 }
+
+variable "gitlab_image_tag" {
+  type        = string
+  description = "Docker image tag for GitLab CE"
+  default     = "18.6.6-ce.0"
+}

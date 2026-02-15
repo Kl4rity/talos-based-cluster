@@ -88,6 +88,7 @@ module "gitlab_server" {
   root_password             = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : random_password.gitlab_server_root_password[0].result
   letsencrypt_email         = var.letsencrypt_email
   runner_registration_token = random_password.gitlab_runner_registration_token[0].result
+  gitlab_image_tag          = var.gitlab_image_tag
 
   providers = {
     cloudflare = cloudflare
