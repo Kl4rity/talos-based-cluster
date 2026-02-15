@@ -14,19 +14,6 @@ variable "domains" {
   type        = list(string)
 }
 
-variable "harbor_admin_password" {
-  description = "Admin password for Harbor registry"
-  type        = string
-  sensitive   = true
-  default     = null
-}
-
-variable "enable_harbor" {
-  description = "Enable Harbor container registry deployment"
-  type        = bool
-  default     = true
-}
-
 variable "grafana_admin_password" {
   description = "Admin password for Grafana"
   type        = string

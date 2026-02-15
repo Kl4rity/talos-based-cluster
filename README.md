@@ -7,12 +7,7 @@ The goal of this repository is to create an opinionated cluster deployment which
 - Compute ✅
 - DNS ✅
 - TLS Certificates ✅
-- Container Registry 
--- 🚧 Notes: Deployment and certificate should work. Pulling with a deployment doesn't quite work. Fails with auth issues despite secrets being present. - WIP.)
--- Update 2026-02-14: Harbor is actually not easy to get to work at all. We need to deal with the underlying nodes needing to interpret the DNS name differently than the outside world.
--- The key terms here are "hairpinning", "split-horizon" and the fact that non-tls connections are untrusted by containerd - which, of course, we'd have http inside of the cluster as we can't easily get a signed certificate.
--- All in all very hard to get right and I haven't managed yet.
--- Thinking of Gitlab-CE for easy Container Registry and CI/CD in a familiar environment for better adoption -> but NAT challenges remain. Open for suggestions / help!
+- Container Registry (GitLab CE) ✅
 - Logging and Monitoring ✅
 - Tracing ✅
 - GlitchTip or BugSink for Error Tracking. 🚧
@@ -44,8 +39,6 @@ export TF_VAR_hcloud_token="your-hcloud-token"
 export TF_VAR_letsencrypt_email="admin@your-domain.com"
 export TF_VAR_cloudflare_api_token="your-cloudflare-token"
 export TF_VAR_domain_name="your-domain.com"
-export TF_VAR_harbor_admin_password="YourAdminPwOrRandom"
-export TF_VAR_enable_harbor="false"
 
 # Deploy
 cd terraform

@@ -226,19 +226,6 @@ resource "helm_release" "external_dns" {
   ]
 }
 
-# Generate secure Harbor admin password if not provided
-resource "random_password" "harbor_admin_password" {
-  count = (var.enable_harbor && var.harbor_admin_password == null) ? 1 : 0
-
-  length           = 32
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
-  min_lower        = 4
-  min_upper        = 4
-  min_numeric      = 4
-  min_special      = 4
-}
-
 # Generate secure Grafana admin password if not provided
 resource "random_password" "grafana_admin_password" {
   count = var.grafana_admin_password == null ? 1 : 0
@@ -250,76 +237,6 @@ resource "random_password" "grafana_admin_password" {
   min_upper        = 4
   min_numeric      = 4
   min_special      = 4
-}
-
-# Harbor for container registry
-resource "helm_release" "harbor" {
-  count            = var.enable_harbor ? 1 : 0
-  name             = "harbor"
-  repository       = "https://helm.goharbor.io"
-  chart            = "harbor"
-  namespace        = "harbor"
-  version          = "1.18.2"
-  create_namespace = true
-  atomic           = true
-  cleanup_on_fail  = true
-
-  values = [
-    yamlencode({
-      externalUrl = "https://registry.${local.primary_domain}"
-      expose = {
-        type = "clusterIP"
-        tls = {
-          enabled = false
-        }
-      }
-      harborAdminPassword = var.harbor_admin_password != null ? var.harbor_admin_password : random_password.harbor_admin_password[0].result
-      trivy = {
-        enabled = true
-      }
-      metrics = {
-        enabled = true
-        serviceMonitor = {
-          enabled = true
-        }
-      }
-    })
-  ]
-}
-
-# HTTPRoute for Harbor
-resource "kubernetes_manifest" "harbor_httproute" {
-  count = var.enable_harbor ? 1 : 0
-  manifest = {
-    apiVersion = "gateway.networking.k8s.io/v1"
-    kind       = "HTTPRoute"
-    metadata = {
-      name      = "harbor"
-      namespace = "harbor"
-    }
-    spec = {
-      parentRefs = [
-        {
-          name      = "cilium-gateway"
-          namespace = "default"
-        }
-      ]
-      hostnames = ["registry.${local.primary_domain}"]
-      rules = [
-        {
-          matches = [{ path = { type = "PathPrefix", value = "/" } }]
-          backendRefs = [
-            {
-              name = "harbor"
-              port = 80
-            }
-          ]
-        }
-      ]
-    }
-  }
-
-  depends_on = [helm_release.harbor]
 }
 
 # Monitoring: Prometheus & Grafana

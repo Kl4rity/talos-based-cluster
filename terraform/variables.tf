@@ -26,19 +26,6 @@ variable "domains" {
   }
 }
 
-variable "harbor_admin_password" {
-  type        = string
-  description = "Admin password for Harbor registry. If not provided, a secure random password will be generated."
-  sensitive   = true
-  default     = null
-}
-
-variable "enable_harbor" {
-  type        = bool
-  description = "Enable Harbor container registry deployment. (WARNING!) Disabled by default as cluster-internal access is an unsolved issue!"
-  default     = false # Disabled as cluster-internal access is an unsolved issue - please reference README.md for description
-}
-
 variable "grafana_admin_password" {
   type        = string
   description = "Admin password for Grafana. If not provided, a secure random password will be generated."

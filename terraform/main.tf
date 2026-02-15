@@ -90,8 +90,6 @@ module "platform_resources" {
   letsencrypt_email      = var.letsencrypt_email
   cloudflare_api_token   = var.cloudflare_api_token
   domains                = var.domains
-  harbor_admin_password  = var.harbor_admin_password
-  enable_harbor          = var.enable_harbor
   grafana_admin_password = var.grafana_admin_password
 
   providers = {

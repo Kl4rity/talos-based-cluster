@@ -47,9 +47,9 @@ The modular structure makes it easy to add new components:
 
 ```
 terraform/modules/
-├── workload-cluster/     # Core cluster (current)
-├── platform-resources/   # Ingress/certificates (current)
-├── container-registry/  # Harbor registry (future)
+├── workload-cluster/     # Core cluster
+├── platform-resources/   # Ingress/certificates/monitoring
+├── gitlab-server/        # GitLab instance for registry and CI/CD
 ├── logging/             # Loki/Promtail (future)
 └── s3-storage/          # MinIO/Hetzner Object Storage (future)
 ```
