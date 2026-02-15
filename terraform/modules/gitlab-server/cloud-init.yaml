@@ -10,10 +10,17 @@ packages:
   - postfix
   - unattended-upgrades
   - apt-listchanges
+  - dnsutils
 
-# Disable SSH for security
+# Set root password for console access (SSH still disabled over network)
+chpasswd:
+  list: |
+    root:${root_password}
+  expire: false
+
+# Disable SSH over network for security, but allow console login
 ssh_pwauth: false
-disable_root: true
+disable_root: false
 
 # Configure automatic security updates
 apt:
@@ -62,13 +69,11 @@ write_files:
       echo "Installing GitLab CE..."
       curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | bash
 
-      # Configure GitLab - INITIALLY WITHOUT Let's Encrypt
-      EXTERNAL_URL="${gitlab_url}" \
-      GITLAB_ROOT_PASSWORD="${gitlab_root_password}" \
-      apt-get install -y gitlab-ce
+      # Install GitLab without setting password via environment (special chars cause issues)
+      EXTERNAL_URL="${gitlab_url}" apt-get install -y gitlab-ce
 
-      # Configure GitLab Registry
-      cat >> /etc/gitlab/gitlab.rb <<EOF
+      # Configure GitLab Registry and settings
+      cat >> /etc/gitlab/gitlab.rb <<'EOF'
 
       # External URLs
       external_url '${gitlab_url}'
@@ -93,58 +98,38 @@ write_files:
       # Monitoring
       prometheus_monitoring['enable'] = true
 
+      # Security settings - disable new user signups
+      gitlab_rails['gitlab_signup_enabled'] = false
+
       # Disable unused services
       mattermost['enable'] = false
       EOF
 
-      # Reconfigure GitLab with self-signed certs first
-      echo "Starting GitLab with self-signed certificates..."
+      # Replace URL placeholders in gitlab.rb
+      sed -i "s|\${gitlab_url}|${gitlab_url}|g" /etc/gitlab/gitlab.rb
+      sed -i "s|\${registry_url}|${registry_url}|g" /etc/gitlab/gitlab.rb
+
+      # Initial reconfigure to set up GitLab
       gitlab-ctl reconfigure
 
-      echo "GitLab initial setup complete - now waiting for DNS propagation..."
+      # Set root password using gitlab-rake (handles special characters correctly)
+      gitlab-rake "gitlab:password:reset[root]" <<PWDEOF
+${gitlab_root_password}
+${gitlab_root_password}
+PWDEOF
 
-      # Wait for DNS to propagate for both domains
-      echo "Waiting for DNS propagation..."
-      GITLAB_DOMAIN=\$(echo "${gitlab_url}" | sed 's|https\?://||')
-      REGISTRY_DOMAIN=\$(echo "${registry_url}" | sed 's|https\?://||')
+      # Enable Let's Encrypt directly
+      echo "Enabling Let's Encrypt..."
+      sed -i "s/letsencrypt\['enable'\] = false/letsencrypt['enable'] = true/" /etc/gitlab/gitlab.rb
 
-      MAX_WAIT=600  # 10 minutes max
-      ELAPSED=0
+      # Add Let's Encrypt contact email
+      sed -i "/letsencrypt\['enable'\] = true/a letsencrypt['contact_emails'] = ['${letsencrypt_email}']\\nletsencrypt['auto_renew'] = true" /etc/gitlab/gitlab.rb
 
-      while [ \$ELAPSED -lt \$MAX_WAIT ]; do
-        GITLAB_IP=\$(dig +short \$GITLAB_DOMAIN @1.1.1.1 | head -n1)
-        REGISTRY_IP=\$(dig +short \$REGISTRY_DOMAIN @1.1.1.1 | head -n1)
+      # Reconfigure GitLab with Let's Encrypt
+      echo "Starting GitLab and obtaining Let's Encrypt certificates..."
+      gitlab-ctl reconfigure
 
-        if [ -n "\$GITLAB_IP" ] && [ -n "\$REGISTRY_IP" ]; then
-          echo "DNS propagated! GitLab: \$GITLAB_IP, Registry: \$REGISTRY_IP"
-          break
-        fi
-
-        echo "Waiting for DNS... (\$ELAPSED/\$MAX_WAIT seconds)"
-        sleep 10
-        ELAPSED=\$((ELAPSED + 10))
-      done
-
-      if [ \$ELAPSED -ge \$MAX_WAIT ]; then
-        echo "WARNING: DNS propagation timeout after \$MAX_WAIT seconds"
-        echo "Let's Encrypt will be skipped - using self-signed certificates"
-      else
-        # DNS is ready - enable Let's Encrypt and reconfigure
-        echo "Enabling Let's Encrypt..."
-        sed -i "s/letsencrypt\['enable'\] = false/letsencrypt['enable'] = true/" /etc/gitlab/gitlab.rb
-
-        # Add Let's Encrypt contact email
-        sed -i "/letsencrypt\['enable'\] = true/a letsencrypt['contact_emails'] = ['${letsencrypt_email}']\\nletsencrypt['auto_renew'] = true" /etc/gitlab/gitlab.rb
-
-        # Remove self-signed certificates
-        rm -rf /etc/gitlab/ssl/*
-
-        # Reconfigure to obtain Let's Encrypt certificates
-        echo "Obtaining Let's Encrypt certificates..."
-        gitlab-ctl reconfigure
-
-        echo "Let's Encrypt certificates obtained successfully!"
-      fi
+      echo "Let's Encrypt certificates obtained successfully!"
 
       echo "GitLab installation complete!"
       echo "Access GitLab at: ${gitlab_url}"

@@ -33,6 +33,12 @@ variable "gitlab_root_password" {
   sensitive   = true
 }
 
+variable "root_password" {
+  type        = string
+  description = "Root password for console access"
+  sensitive   = true
+}
+
 variable "letsencrypt_email" {
   type        = string
   description = "Email for Let's Encrypt certificates"

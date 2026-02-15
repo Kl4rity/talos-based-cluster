@@ -44,6 +44,7 @@ data "cloudinit_config" "gitlab" {
       gitlab_url           = local.gitlab_url
       registry_url         = local.registry_url
       gitlab_root_password = var.gitlab_root_password
+      root_password        = var.root_password
       letsencrypt_email    = var.letsencrypt_email
     })
   }

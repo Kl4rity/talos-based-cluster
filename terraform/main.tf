@@ -54,6 +54,19 @@ resource "random_password" "gitlab_root_password" {
   min_special      = 4
 }
 
+# Generate secure server root password if not provided
+resource "random_password" "gitlab_server_root_password" {
+  count = var.enable_gitlab && var.gitlab_server_root_password == null ? 1 : 0
+
+  length           = 32
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+  min_lower        = 4
+  min_upper        = 4
+  min_numeric      = 4
+  min_special      = 4
+}
+
 module "gitlab_server" {
   count = var.enable_gitlab ? 1 : 0
 
@@ -64,6 +77,7 @@ module "gitlab_server" {
   location             = var.gitlab_server_location
   volume_size          = var.gitlab_volume_size
   gitlab_root_password = var.gitlab_root_password != null ? var.gitlab_root_password : random_password.gitlab_root_password[0].result
+  root_password        = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : random_password.gitlab_server_root_password[0].result
   letsencrypt_email    = var.letsencrypt_email
 
   providers = {
@@ -116,5 +130,11 @@ output "gitlab_server_ip" {
 output "gitlab_root_password" {
   description = "GitLab root password (if auto-generated)"
   value       = var.enable_gitlab && var.gitlab_root_password == null ? random_password.gitlab_root_password[0].result : "User provided - check your secrets"
+  sensitive   = true
+}
+
+output "gitlab_server_root_password" {
+  description = "GitLab server root password for console access (if auto-generated)"
+  value       = var.enable_gitlab && var.gitlab_server_root_password == null ? random_password.gitlab_server_root_password[0].result : "User provided - check your secrets"
   sensitive   = true
 }
