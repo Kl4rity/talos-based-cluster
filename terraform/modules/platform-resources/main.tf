@@ -349,6 +349,37 @@ resource "helm_release" "prometheus_stack" {
             type   = "loki"
             url    = "http://loki-stack.logging.svc.${local.primary_domain}:3100"
             access = "proxy"
+            jsonData = {
+              derivedFields = [
+                {
+                  datasourceUid = "tempo"
+                  matcherRegex  = "traceID=(\\w+)"
+                  name          = "TraceID"
+                  url           = "$${__value.raw}"
+                }
+              ]
+            }
+          },
+          {
+            name   = "Tempo"
+            type   = "tempo"
+            uid    = "tempo"
+            url    = "http://tempo.tracing.svc.${local.primary_domain}:3100"
+            access = "proxy"
+            jsonData = {
+              httpMethod    = "GET"
+              serviceMap    = { datasourceUid = "prometheus" }
+              nodeGraph     = { enabled = true }
+              lokiSearch    = { datasourceUid = "loki" }
+              tracesToLogsV2 = {
+                datasourceUid      = "loki"
+                spanStartTimeShift = "1h"
+                spanEndTimeShift   = "1h"
+                tags               = ["job", "instance", "pod", "namespace"]
+                filterByTraceID    = true
+                filterBySpanID     = false
+              }
+            }
           }
         ]
       }
@@ -449,6 +480,24 @@ resource "helm_release" "loki_stack" {
                 target_label  = "__host__"
               }
             ]
+            pipelineStages = [
+              {
+                multiline = {
+                  firstline = "^\\d{4}-\\d{2}-\\d{2}"
+                  max_lines = 128
+                }
+              },
+              {
+                regex = {
+                  expression = "traceID=(?P<traceID>\\w+)"
+                }
+              },
+              {
+                labels = {
+                  traceID = null
+                }
+              }
+            ]
           }
         }
         extraVolumes = [
@@ -466,6 +515,52 @@ resource "helm_release" "loki_stack" {
             readOnly  = true
           }
         ]
+      }
+    })
+  ]
+}
+
+# Tracing: Tempo
+resource "kubernetes_namespace" "tracing" {
+  metadata {
+    name = "tracing"
+    labels = {
+      "pod-security.kubernetes.io/enforce" = "privileged"
+    }
+  }
+}
+
+resource "helm_release" "tempo" {
+  name             = "tempo"
+  repository       = "https://grafana.github.io/helm-charts"
+  chart            = "tempo"
+  namespace        = kubernetes_namespace.tracing.metadata[0].name
+  create_namespace = false
+  version          = "1.10.1"
+
+  values = [
+    yamlencode({
+      tempo = {
+        storage = {
+          trace = {
+            backend = "local"
+            local = {
+              path = "/var/tempo/traces"
+            }
+            wal = {
+              path = "/var/tempo/wal"
+            }
+          }
+        }
+        securityContext = {
+          runAsUser  = 1001
+          runAsGroup = 1001
+          fsGroup    = 1001
+        }
+      }
+      persistence = {
+        enabled = true
+        size    = "10Gi"
       }
     })
   ]
