@@ -1,0 +1,156 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - ca-certificates
+  - tzdata
+  - perl
+  - postfix
+  - unattended-upgrades
+  - apt-listchanges
+
+# Disable SSH for security
+ssh_pwauth: false
+disable_root: true
+
+# Configure automatic security updates
+apt:
+  conf: |
+    APT::Periodic::Update-Package-Lists "1";
+    APT::Periodic::Unattended-Upgrade "1";
+    APT::Periodic::AutocleanInterval "7";
+    Unattended-Upgrade::Automatic-Reboot "true";
+    Unattended-Upgrade::Automatic-Reboot-Time "03:00";
+    Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+write_files:
+  - path: /etc/gitlab-setup.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+
+      echo "Waiting for volume to be attached..."
+      while [ ! -e /dev/disk/by-id/scsi-0HC_Volume_* ]; do
+        sleep 2
+      done
+
+      VOLUME_DEVICE=$(ls /dev/disk/by-id/scsi-0HC_Volume_* | head -1)
+      echo "Found volume: $VOLUME_DEVICE"
+
+      # Check if volume is already formatted
+      if ! blkid $VOLUME_DEVICE; then
+        echo "Formatting volume..."
+        mkfs.ext4 -F $VOLUME_DEVICE
+      fi
+
+      # Create mount point
+      mkdir -p /var/opt/gitlab
+
+      # Mount volume
+      echo "$VOLUME_DEVICE /var/opt/gitlab ext4 discard,nofail,defaults 0 0" >> /etc/fstab
+      mount -a
+
+      # Set ownership
+      chown -R root:root /var/opt/gitlab
+
+      echo "Volume mounted successfully"
+
+      # Install GitLab
+      echo "Installing GitLab CE..."
+      curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | bash
+
+      # Configure GitLab - INITIALLY WITHOUT Let's Encrypt
+      EXTERNAL_URL="${gitlab_url}" \
+      GITLAB_ROOT_PASSWORD="${gitlab_root_password}" \
+      apt-get install -y gitlab-ce
+
+      # Configure GitLab Registry
+      cat >> /etc/gitlab/gitlab.rb <<EOF
+
+      # External URLs
+      external_url '${gitlab_url}'
+      registry_external_url '${registry_url}'
+
+      # Registry settings
+      gitlab_rails['registry_enabled'] = true
+      registry['enable'] = true
+
+      # Let's Encrypt - DISABLED initially, enabled after DNS propagation
+      letsencrypt['enable'] = false
+
+      # Registry Let's Encrypt
+      registry_nginx['ssl_certificate'] = "/etc/gitlab/ssl/#{node['fqdn']}.crt"
+      registry_nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/#{node['fqdn']}.key"
+
+      # Performance settings
+      unicorn['worker_processes'] = 2
+      sidekiq['max_concurrency'] = 10
+      postgresql['shared_buffers'] = "256MB"
+
+      # Monitoring
+      prometheus_monitoring['enable'] = true
+
+      # Disable unused services
+      mattermost['enable'] = false
+      EOF
+
+      # Reconfigure GitLab with self-signed certs first
+      echo "Starting GitLab with self-signed certificates..."
+      gitlab-ctl reconfigure
+
+      echo "GitLab initial setup complete - now waiting for DNS propagation..."
+
+      # Wait for DNS to propagate for both domains
+      echo "Waiting for DNS propagation..."
+      GITLAB_DOMAIN=\$(echo "${gitlab_url}" | sed 's|https\?://||')
+      REGISTRY_DOMAIN=\$(echo "${registry_url}" | sed 's|https\?://||')
+
+      MAX_WAIT=600  # 10 minutes max
+      ELAPSED=0
+
+      while [ \$ELAPSED -lt \$MAX_WAIT ]; do
+        GITLAB_IP=\$(dig +short \$GITLAB_DOMAIN @1.1.1.1 | head -n1)
+        REGISTRY_IP=\$(dig +short \$REGISTRY_DOMAIN @1.1.1.1 | head -n1)
+
+        if [ -n "\$GITLAB_IP" ] && [ -n "\$REGISTRY_IP" ]; then
+          echo "DNS propagated! GitLab: \$GITLAB_IP, Registry: \$REGISTRY_IP"
+          break
+        fi
+
+        echo "Waiting for DNS... (\$ELAPSED/\$MAX_WAIT seconds)"
+        sleep 10
+        ELAPSED=\$((ELAPSED + 10))
+      done
+
+      if [ \$ELAPSED -ge \$MAX_WAIT ]; then
+        echo "WARNING: DNS propagation timeout after \$MAX_WAIT seconds"
+        echo "Let's Encrypt will be skipped - using self-signed certificates"
+      else
+        # DNS is ready - enable Let's Encrypt and reconfigure
+        echo "Enabling Let's Encrypt..."
+        sed -i "s/letsencrypt\['enable'\] = false/letsencrypt['enable'] = true/" /etc/gitlab/gitlab.rb
+
+        # Add Let's Encrypt contact email
+        sed -i "/letsencrypt\['enable'\] = true/a letsencrypt['contact_emails'] = ['${letsencrypt_email}']\\nletsencrypt['auto_renew'] = true" /etc/gitlab/gitlab.rb
+
+        # Remove self-signed certificates
+        rm -rf /etc/gitlab/ssl/*
+
+        # Reconfigure to obtain Let's Encrypt certificates
+        echo "Obtaining Let's Encrypt certificates..."
+        gitlab-ctl reconfigure
+
+        echo "Let's Encrypt certificates obtained successfully!"
+      fi
+
+      echo "GitLab installation complete!"
+      echo "Access GitLab at: ${gitlab_url}"
+      echo "Username: root"
+
+runcmd:
+  - /etc/gitlab-setup.sh
+
+final_message: "GitLab server is ready!"

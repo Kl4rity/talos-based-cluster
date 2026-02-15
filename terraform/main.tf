@@ -15,11 +15,23 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.7"
     }
+    cloudinit = {
+      source  = "hashicorp/cloudinit"
+      version = "~> 2.3"
+    }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
 }
 
 provider "hcloud" {
   token = var.hcloud_token
+}
+
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }
 
 module "workload_cluster" {
@@ -29,13 +41,43 @@ module "workload_cluster" {
   cloudflare_api_token = var.cloudflare_api_token
 }
 
+# Generate secure GitLab root password if not provided
+resource "random_password" "gitlab_root_password" {
+  count = var.enable_gitlab && var.gitlab_root_password == null ? 1 : 0
+
+  length           = 32
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+  min_lower        = 4
+  min_upper        = 4
+  min_numeric      = 4
+  min_special      = 4
+}
+
+module "gitlab_server" {
+  count = var.enable_gitlab ? 1 : 0
+
+  source               = "./modules/gitlab-server"
+  hcloud_token         = var.hcloud_token
+  domains              = var.domains
+  server_type          = var.gitlab_server_type
+  location             = var.gitlab_server_location
+  volume_size          = var.gitlab_volume_size
+  gitlab_root_password = var.gitlab_root_password != null ? var.gitlab_root_password : random_password.gitlab_root_password[0].result
+  letsencrypt_email    = var.letsencrypt_email
+
+  providers = {
+    cloudflare = cloudflare
+  }
+}
+
 module "platform_resources" {
-  source                = "./modules/platform-resources"
-  letsencrypt_email     = var.letsencrypt_email
-  cloudflare_api_token  = var.cloudflare_api_token
-  domains               = var.domains
-  harbor_admin_password = var.harbor_admin_password
-  enable_harbor         = var.enable_harbor
+  source                 = "./modules/platform-resources"
+  letsencrypt_email      = var.letsencrypt_email
+  cloudflare_api_token   = var.cloudflare_api_token
+  domains                = var.domains
+  harbor_admin_password  = var.harbor_admin_password
+  enable_harbor          = var.enable_harbor
   grafana_admin_password = var.grafana_admin_password
 
   providers = {
@@ -53,4 +95,26 @@ provider "helm" {
   kubernetes = {
     config_path = "${path.module}/kubeconfig"
   }
+}
+
+# Outputs for GitLab
+output "gitlab_url" {
+  description = "GitLab web interface URL"
+  value       = var.enable_gitlab ? module.gitlab_server[0].gitlab_url : null
+}
+
+output "gitlab_registry_url" {
+  description = "GitLab container registry URL"
+  value       = var.enable_gitlab ? module.gitlab_server[0].registry_url : null
+}
+
+output "gitlab_server_ip" {
+  description = "GitLab server IP address"
+  value       = var.enable_gitlab ? module.gitlab_server[0].server_ipv4 : null
+}
+
+output "gitlab_root_password" {
+  description = "GitLab root password (if auto-generated)"
+  value       = var.enable_gitlab && var.gitlab_root_password == null ? random_password.gitlab_root_password[0].result : "User provided - check your secrets"
+  sensitive   = true
 }

@@ -45,3 +45,34 @@ variable "grafana_admin_password" {
   sensitive   = true
   default     = null
 }
+
+variable "enable_gitlab" {
+  type        = bool
+  description = "Enable GitLab CE deployment on dedicated Hetzner server"
+  default     = true
+}
+
+variable "gitlab_server_type" {
+  type        = string
+  description = "Hetzner server type for GitLab (minimum CPX31 recommended)"
+  default     = "cx33"
+}
+
+variable "gitlab_server_location" {
+  type        = string
+  description = "Hetzner location for GitLab server"
+  default     = "nbg1"
+}
+
+variable "gitlab_volume_size" {
+  type        = number
+  description = "Size of Hetzner volume for GitLab data in GB"
+  default     = 100
+}
+
+variable "gitlab_root_password" {
+  type        = string
+  description = "Root password for GitLab. If not provided, a secure random password will be generated."
+  sensitive   = true
+  default     = null
+}

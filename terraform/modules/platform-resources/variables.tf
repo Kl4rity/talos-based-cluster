@@ -4,7 +4,7 @@ variable "letsencrypt_email" {
 }
 
 variable "cloudflare_api_token" {
-  description = "Cloudflare API token for DNS-01 challenges"
+  description = "Cloudflare API token for DNS-01 challenges and DNS management"
   type        = string
   sensitive   = true
 }
