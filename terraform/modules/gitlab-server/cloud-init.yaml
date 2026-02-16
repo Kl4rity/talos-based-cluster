@@ -36,6 +36,16 @@ write_files:
     permissions: '0600'
     encoding: b64
     content: ${base64encode(k3s_ca_key)}
+  - path: /var/lib/rancher/k3s/server/tls/client-ca.crt
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(k3s_ca_cert)}
+  - path: /var/lib/rancher/k3s/server/tls/client-ca.key
+    owner: root:root
+    permissions: '0600'
+    encoding: b64
+    content: ${base64encode(k3s_ca_key)}
 
 runcmd:
   - [ systemctl, stop, ssh ]
@@ -46,6 +56,6 @@ runcmd:
   - [ sysctl, -w, net.ipv4.icmp_echo_ignore_broadcasts=1 ]
   - mkdir -p /var/lib/rancher/k3s/storage
   - until mount "/dev/disk/by-id/scsi-0HC_Volume_${volume_id}" /var/lib/rancher/k3s/storage; do sleep 1; done
-  - curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644 --tls-san ${gitlab_hostname} --disable traefik --token ${k3s_token}
+  - curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644 --tls-san ${gitlab_hostname} --disable traefik
 
 final_message: "K3s is ready for GitLab Helm deployment!"
