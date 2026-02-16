@@ -27,3 +27,27 @@ output "volume_id" {
   description = "Hetzner volume ID for GitLab data"
   value       = var.enable_gitlab ? hcloud_volume.gitlab_data[0].id : null
 }
+
+output "debug_ssh_private_key" {
+  description = "SSH private key for debugging the GitLab server"
+  value       = var.enable_gitlab ? tls_private_key.debug_ssh[0].private_key_pem : null
+  sensitive   = true
+}
+
+output "k3s_admin_cert" {
+  description = "K3s admin client certificate"
+  value       = var.enable_gitlab ? tls_locally_signed_cert.k3s_admin[0].cert_pem : null
+  sensitive   = true
+}
+
+output "k3s_admin_key" {
+  description = "K3s admin client key"
+  value       = var.enable_gitlab ? tls_private_key.k3s_admin[0].private_key_pem : null
+  sensitive   = true
+}
+
+output "k3s_ca_cert" {
+  description = "K3s cluster CA certificate"
+  value       = var.enable_gitlab ? tls_self_signed_cert.k3s_ca[0].cert_pem : null
+  sensitive   = true
+}

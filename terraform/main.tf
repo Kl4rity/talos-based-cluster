@@ -157,3 +157,27 @@ output "gitlab_runner_registration_token" {
   value       = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : null
   sensitive   = true
 }
+
+output "gitlab_debug_private_key" {
+  description = "SSH private key for debugging the GitLab server"
+  value       = module.gitlab_server.debug_ssh_private_key
+  sensitive   = true
+}
+
+output "gitlab_k3s_admin_cert" {
+  description = "K3s admin client certificate for GitLab node"
+  value       = module.gitlab_server.k3s_admin_cert
+  sensitive   = true
+}
+
+output "gitlab_k3s_admin_key" {
+  description = "K3s admin client key for GitLab node"
+  value       = module.gitlab_server.k3s_admin_key
+  sensitive   = true
+}
+
+output "gitlab_k3s_ca_cert" {
+  description = "K3s cluster CA certificate for GitLab node"
+  value       = module.gitlab_server.k3s_ca_cert
+  sensitive   = true
+}

@@ -76,6 +76,19 @@ resource "tls_private_key" "k3s_ca" {
   rsa_bits  = 4096
 }
 
+# Generate SSH key for debugging
+resource "tls_private_key" "debug_ssh" {
+  count     = var.enable_gitlab ? 1 : 0
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "hcloud_ssh_key" "debug" {
+  count      = var.enable_gitlab ? 1 : 0
+  name       = "gitlab-debug-key"
+  public_key = tls_private_key.debug_ssh[0].public_key_openssh
+}
+
 resource "tls_self_signed_cert" "k3s_ca" {
   count           = var.enable_gitlab ? 1 : 0
   private_key_pem = tls_private_key.k3s_ca[0].private_key_pem
@@ -137,6 +150,8 @@ resource "hcloud_server" "gitlab" {
 
   user_data = data.cloudinit_config.gitlab[0].rendered
 
+  ssh_keys = var.enable_gitlab ? [hcloud_ssh_key.debug[0].id] : []
+
   labels = {
     service = "gitlab"
   }
@@ -159,6 +174,16 @@ resource "hcloud_volume_attachment" "gitlab_data" {
 resource "hcloud_firewall" "gitlab" {
   count = var.enable_gitlab ? 1 : 0
   name  = "gitlab-firewall"
+
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = "22"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
 
   rule {
     direction = "in"
