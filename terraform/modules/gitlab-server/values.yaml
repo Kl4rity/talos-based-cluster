@@ -1,0 +1,45 @@
+global:
+  hosts:
+    domain: ${domain}
+    gitlab:
+      name: gitlab.${domain}
+    registry:
+      name: registry.${domain}
+  ingress:
+    configureCertmanager: true
+    tls:
+      enabled: true
+  initialRootPassword:
+    password: "${gitlab_root_password}"
+  runnerRegistrationToken: "${runner_registration_token}"
+certmanager-issuer:
+  email: ${letsencrypt_email}
+certmanager:
+  install: true
+nginx-ingress:
+  enabled: true
+gitlab-runner:
+  install: true
+  rbac:
+    create: true
+  runners:
+    # Set privileged to false for better security - building via Kaniko
+    privileged: false
+    config: |
+      [[runners]]
+        [runners.kubernetes]
+          image = "ubuntu:24.04"
+          privileged = false
+          # Ensure pods are unprivileged by default
+          allow_privilege_escalation = false
+          # Kaniko requires no special volumes, keeping it clean
+postgresql:
+  persistence:
+    size: 10Gi
+redis:
+  master:
+    persistence:
+      size: 5Gi
+gitaly:
+  persistence:
+    size: 50Gi

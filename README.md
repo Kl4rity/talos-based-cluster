@@ -76,7 +76,10 @@ talos-based-cluster/
 
 ### Platform Services
 - GitLab CE (Container Registry & CI/CD)
-- GitLab Runners (Automatically registered on the Kubernetes cluster)
+- GitLab Runners:
+    - Dedicated execution on the GitLab K3s node.
+    - **Secure/Unprivileged Mode**: Uses Kaniko for building images.
+    - Isolated from the production cluster.
 - Prometheus & Grafana (Monitoring)
 - Loki & Promtail (Logging)
 - Tempo (Tracing)
@@ -101,7 +104,10 @@ This configuration deploys:
 - Ingress Gateway (Cilium)
 - Cert-Manager for TLS certificates
 - Monitoring and Logging stack
-- **GitLab Runner**: Deployed via Helm into the cluster, automatically connecting back to the GitLab instance using the shared registration token.
+
+### Registry & CI/CD (`modules/gitlab-server`)
+- **GitLab CE**: Hardened Ubuntu 24.04 VM running a standalone K3s instance.
+- **GitLab Runner**: Deployed on the same dedicated K3s node. Runners are unprivileged for maximum security; image builds should use Kaniko.
 
 ## Deployment Commands
 

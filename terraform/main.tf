@@ -23,6 +23,10 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 4.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
   }
 }
 
@@ -76,18 +80,17 @@ resource "random_password" "gitlab_runner_registration_token" {
 }
 
 module "gitlab_server" {
-  count = var.enable_gitlab ? 1 : 0
-
   source               = "./modules/gitlab-server"
+  enable_gitlab        = var.enable_gitlab
   hcloud_token         = var.hcloud_token
   domains              = var.domains
   server_type          = var.gitlab_server_type
   location             = var.gitlab_server_location
   volume_size          = var.gitlab_volume_size
-  gitlab_root_password = var.gitlab_root_password != null ? var.gitlab_root_password : random_password.gitlab_root_password[0].result
-  root_password             = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : random_password.gitlab_server_root_password[0].result
+  gitlab_root_password = var.gitlab_root_password != null ? var.gitlab_root_password : (var.enable_gitlab ? random_password.gitlab_root_password[0].result : "")
+  root_password             = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : (var.enable_gitlab ? random_password.gitlab_server_root_password[0].result : "")
   letsencrypt_email         = var.letsencrypt_email
-  runner_registration_token = random_password.gitlab_runner_registration_token[0].result
+  runner_registration_token = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : ""
   gitlab_image_tag          = var.gitlab_image_tag
 
   providers = {
@@ -124,17 +127,17 @@ provider "helm" {
 # Outputs for GitLab
 output "gitlab_url" {
   description = "GitLab web interface URL"
-  value       = var.enable_gitlab ? module.gitlab_server[0].gitlab_url : null
+  value       = module.gitlab_server.gitlab_url
 }
 
 output "gitlab_registry_url" {
   description = "GitLab container registry URL"
-  value       = var.enable_gitlab ? module.gitlab_server[0].registry_url : null
+  value       = module.gitlab_server.registry_url
 }
 
 output "gitlab_server_ip" {
   description = "GitLab server IP address"
-  value       = var.enable_gitlab ? module.gitlab_server[0].server_ipv4 : null
+  value       = module.gitlab_server.server_ipv4
 }
 
 output "gitlab_root_password" {

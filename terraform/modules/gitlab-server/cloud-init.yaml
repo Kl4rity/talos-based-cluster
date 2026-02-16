@@ -2,23 +2,12 @@
 package_update: true
 package_upgrade: true
 
-fs_setup:
-  - label: gitlab-data
-    filesystem: ext4
-    device: /dev/disk/by-id/scsi-0HC_Volume_${volume_id}
-    overwrite: false
-
-mounts:
-  - [ "/dev/disk/by-id/scsi-0HC_Volume_${volume_id}", "/var/lib/gitlab", "ext4", "discard,nofail,defaults", "0", "0" ]
-
 packages:
-  - docker.io
-  - docker-compose-v2
-  - unattended-upgrades
-  - fail2ban
   - curl
   - ca-certificates
   - dnsutils
+  - unattended-upgrades
+  - fail2ban
 
 # Configure automatic security updates and reboots for patches
 apt:
@@ -37,56 +26,16 @@ chpasswd:
   expire: false
 
 write_files:
-  - path: /etc/systemd/system/gitlab-docker.service
-    content: |
-      [Unit]
-      Description=GitLab Docker Compose Service
-      Requires=docker.service var-lib-gitlab.mount
-      After=docker.service var-lib-gitlab.mount
-
-      [Service]
-      Type=oneshot
-      RemainAfterExit=yes
-      WorkingDirectory=/etc/gitlab
-      ExecStart=/usr/bin/docker compose up -d
-      ExecStop=/usr/bin/docker compose stop
-
-      [Install]
-      WantedBy=multi-user.target
-
-  - path: /etc/gitlab/docker-compose.yml
-    content: |
-      services:
-        gitlab:
-          image: 'gitlab/gitlab-ce:${gitlab_image_tag}'
-          restart: always
-          hostname: '${gitlab_hostname}'
-          environment:
-            GITLAB_OMNIBUS_CONFIG: |
-              external_url '${gitlab_url}'
-              registry_external_url '${registry_url}'
-              
-              # Initial Setup
-              gitlab_rails['initial_root_password'] = '${gitlab_root_password}'
-              gitlab_rails['gitlab_signup_enabled'] = false
-              gitlab_rails['signup_enabled'] = false
-              
-              # Runner Registration
-              gitlab_rails['allow_runner_registration_token'] = true
-              gitlab_rails['shared_runners_registration_token'] = '${runner_registration_token}'
-              
-              # TLS / Let's Encrypt
-              letsencrypt['enable'] = true
-              letsencrypt['contact_emails'] = ['${letsencrypt_email}']
-          ports:
-            - '80:80'
-            - '443:443'
-            - '2222:22'
-          volumes:
-            - '/var/lib/gitlab/config:/etc/gitlab'
-            - '/var/lib/gitlab/logs:/var/log/gitlab'
-            - '/var/lib/gitlab/data:/var/opt/gitlab'
-          shm_size: '512m'
+  - path: /var/lib/rancher/k3s/server/tls/server-ca.crt
+    owner: root:root
+    permissions: '0644'
+    encoding: b64
+    content: ${base64encode(k3s_ca_cert)}
+  - path: /var/lib/rancher/k3s/server/tls/server-ca.key
+    owner: root:root
+    permissions: '0600'
+    encoding: b64
+    content: ${base64encode(k3s_ca_key)}
 
 runcmd:
   - [ systemctl, stop, ssh ]
@@ -95,9 +44,8 @@ runcmd:
   - [ sysctl, -w, net.ipv4.conf.all.accept_source_route=0 ]
   - [ sysctl, -w, net.ipv4.conf.all.send_redirects=0 ]
   - [ sysctl, -w, net.ipv4.icmp_echo_ignore_broadcasts=1 ]
-  - mkdir -p /var/lib/gitlab/config /var/lib/gitlab/logs /var/lib/gitlab/data
-  - systemctl enable docker
-  - systemctl enable gitlab-docker.service
-  - systemctl start gitlab-docker.service
+  - mkdir -p /var/lib/rancher/k3s/storage
+  - until mount "/dev/disk/by-id/scsi-0HC_Volume_${volume_id}" /var/lib/rancher/k3s/storage; do sleep 1; done
+  - curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644 --tls-san ${gitlab_hostname} --disable traefik --token ${k3s_token}
 
-final_message: "GitLab is starting up in a container!"
+final_message: "K3s is ready for GitLab Helm deployment!"
