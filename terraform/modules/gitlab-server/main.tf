@@ -275,6 +275,20 @@ resource "cloudflare_record" "registry" {
   comment = "GitLab Container Registry managed by Terraform"
 }
 
+# Create A records for minio.{domain}
+resource "cloudflare_record" "minio" {
+  for_each = var.enable_gitlab ? toset(var.domains) : []
+
+  zone_id = data.cloudflare_zone.domains[each.value].id
+  name    = "minio"
+  content = hcloud_server.gitlab[0].ipv4_address
+  type    = "A"
+  ttl     = 300
+  proxied = false
+
+  comment = "GitLab MinIO server managed by Terraform"
+}
+
 # Wait for K3s API to be ready
 resource "null_resource" "wait_for_k3s" {
   count = var.enable_gitlab ? 1 : 0
@@ -310,6 +324,15 @@ provider "helm" {
   }
 }
 
+# Kubernetes provider for the dedicated GitLab K3s instance
+provider "kubernetes" {
+  alias = "gitlab_k3s"
+  host                   = length(hcloud_server.gitlab) > 0 ? "https://${hcloud_server.gitlab[0].ipv4_address}:6443" : ""
+  client_certificate     = length(tls_locally_signed_cert.k3s_admin) > 0 ? tls_locally_signed_cert.k3s_admin[0].cert_pem : ""
+  client_key             = length(tls_private_key.k3s_admin) > 0 ? tls_private_key.k3s_admin[0].private_key_pem : ""
+  cluster_ca_certificate = length(tls_self_signed_cert.k3s_ca) > 0 ? tls_self_signed_cert.k3s_ca[0].cert_pem : ""
+}
+
 # GitLab Helm Release on the dedicated K3s instance
 resource "helm_release" "gitlab_ce" {
   count            = var.enable_gitlab ? 1 : 0
@@ -317,12 +340,12 @@ resource "helm_release" "gitlab_ce" {
   name             = "gitlab"
   repository       = "https://charts.gitlab.io/"
   chart            = "gitlab"
-  version          = "8.11.1"
+  version          = "9.8.4"
   namespace        = "gitlab"
   create_namespace = true
   timeout          = 900
   render_subchart_notes = true
-  upgrade_install       = false
+  upgrade_install       = true
   wait                  = true
   atomic                = false
   dependency_update     = false

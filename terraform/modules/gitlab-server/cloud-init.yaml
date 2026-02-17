@@ -53,7 +53,8 @@ runcmd:
   - [ sysctl, -w, net.ipv4.conf.all.send_redirects=0 ]
   - [ sysctl, -w, net.ipv4.icmp_echo_ignore_broadcasts=1 ]
   - mkdir -p /var/lib/rancher/k3s/storage
-  - until mount "/dev/disk/by-id/scsi-0HC_Volume_${volume_id}" /var/lib/rancher/k3s/storage; do sleep 1; done
+  - echo "/dev/disk/by-id/scsi-0HC_Volume_${volume_id} /var/lib/rancher/k3s/storage ext4 discard,nofail,defaults 0 0" >> /etc/fstab
+  - until mount -a; do sleep 1; done
   - curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644 --tls-san ${gitlab_hostname} --disable traefik
 
 final_message: "K3s is ready for GitLab Helm deployment!"
