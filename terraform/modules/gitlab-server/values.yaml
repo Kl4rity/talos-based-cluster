@@ -11,8 +11,12 @@ global:
     configureCertmanager: true
     tls:
       enabled: true
+  ## Initial root password for this GitLab installation
+  ## Using auto-generated secret as per GitLab charts best practices
+  ## https://docs.gitlab.com/charts/installation/secrets#initial-root-password
   initialRootPassword:
-    password: "${gitlab_root_password}"
+    secret: gitlab-initial-root-password
+    key: password
   # Enable MinIO for object storage (simplest for self-hosted)
   minio:
     enabled: true

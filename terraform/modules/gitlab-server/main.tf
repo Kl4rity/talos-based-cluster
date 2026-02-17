@@ -333,6 +333,25 @@ provider "kubernetes" {
   cluster_ca_certificate = length(tls_self_signed_cert.k3s_ca) > 0 ? tls_self_signed_cert.k3s_ca[0].cert_pem : ""
 }
 
+# Create Kubernetes secret for GitLab initial root password
+resource "kubernetes_secret" "gitlab_initial_root_password" {
+  count = var.enable_gitlab && var.gitlab_root_password != null ? 1 : 0
+  provider = kubernetes.gitlab_k3s
+
+  metadata {
+    name      = "gitlab-initial-root-password"
+    namespace = "gitlab"
+  }
+
+  data = {
+    password = var.gitlab_root_password
+  }
+
+  type = "Opaque"
+  
+  depends_on = [null_resource.wait_for_k3s]
+}
+
 # GitLab Helm Release on the dedicated K3s instance
 resource "helm_release" "gitlab_ce" {
   count            = var.enable_gitlab ? 1 : 0
@@ -376,5 +395,5 @@ resource "helm_release" "gitlab_ce" {
     })
   ]
 
-  depends_on = [null_resource.wait_for_k3s]
+  depends_on = [null_resource.wait_for_k3s, kubernetes_secret.gitlab_initial_root_password]
 }
