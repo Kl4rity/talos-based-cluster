@@ -35,8 +35,6 @@ provider "helm" {
 
 # Create Kubernetes namespace for GitLab first
 resource "kubernetes_namespace" "gitlab" {
-  count = var.enable_gitlab ? 1 : 0
-
   metadata {
     name = "gitlab"
   }
@@ -44,11 +42,9 @@ resource "kubernetes_namespace" "gitlab" {
 
 # Create Kubernetes secret for GitLab initial root password
 resource "kubernetes_secret" "gitlab_initial_root_password" {
-  count = var.enable_gitlab && var.gitlab_root_password != null ? 1 : 0
-
   metadata {
     name      = "gitlab-initial-root-password"
-    namespace = kubernetes_namespace.gitlab[0].metadata[0].name
+    namespace = kubernetes_namespace.gitlab.metadata[0].name
   }
 
   data = {
@@ -60,12 +56,11 @@ resource "kubernetes_secret" "gitlab_initial_root_password" {
 
 # GitLab Helm Release on the dedicated K3s instance
 resource "helm_release" "gitlab_ce" {
-  count      = var.enable_gitlab ? 1 : 0
   name       = "gitlab"
   repository = "https://charts.gitlab.io/"
   chart      = "gitlab"
   version    = var.gitlab_chart_version
-  namespace  = kubernetes_namespace.gitlab[0].metadata[0].name
+  namespace  = kubernetes_namespace.gitlab.metadata[0].name
   create_namespace = false
   timeout               = 900
   render_subchart_notes = true
