@@ -38,6 +38,30 @@ provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }
 
+locals {
+  # If server_ipv4 is known, use it. Otherwise, use a static string to satisfy provider validation during plan.
+  # We use coalesce to ensure the expression is never null, but keep it as a simple string if possible.
+  kube_host = module.gitlab_server.server_ipv4 != null && module.gitlab_server.server_ipv4 != "" ? "https://${module.gitlab_server.server_ipv4}:6443" : "https://127.0.0.1:6443"
+}
+
+provider "kubernetes" {
+  host                   = local.kube_host
+  client_certificate     = module.gitlab_server.k3s_admin_cert
+  client_key             = module.gitlab_server.k3s_admin_key
+  cluster_ca_certificate = module.gitlab_server.k3s_ca_cert
+  config_path            = "/dev/null"
+}
+
+provider "helm" {
+  kubernetes = {
+    host                   = local.kube_host
+    client_certificate     = module.gitlab_server.k3s_admin_cert
+    client_key             = module.gitlab_server.k3s_admin_key
+    cluster_ca_certificate = module.gitlab_server.k3s_ca_cert
+    config_path            = "/dev/null"
+  }
+}
+
 # Generate secure GitLab root password if not provided
 resource "random_password" "gitlab_root_password" {
   count = var.gitlab_root_password == null ? 1 : 0
@@ -155,9 +179,5 @@ module "gitlab_deploy" {
   gitlab_root_password      = var.gitlab_root_password != null ? var.gitlab_root_password : random_password.gitlab_root_password[0].result
   runner_registration_token = random_password.gitlab_runner_registration_token.result
 
-  # K3s cluster connectivity from the server module
-  kube_host                   = "https://${module.gitlab_server.server_ipv4}:6443"
-  kube_client_certificate     = module.gitlab_server.k3s_admin_cert
-  kube_client_key             = module.gitlab_server.k3s_admin_key
-  kube_cluster_ca_certificate = module.gitlab_server.k3s_ca_cert
+  depends_on = [module.gitlab_server]
 }
