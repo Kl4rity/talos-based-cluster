@@ -1,4 +1,5 @@
 global:
+  edition: ce
   kas:
     enabled: false
   hosts:

@@ -42,7 +42,7 @@ variable "enable_gitlab" {
 variable "gitlab_server_type" {
   type        = string
   description = "Hetzner server type for GitLab (minimum CX33 recommended)"
-  default     = "cpx32"
+  default     = "cx43"
 }
 
 variable "gitlab_server_location" {

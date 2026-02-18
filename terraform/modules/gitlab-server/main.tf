@@ -333,6 +333,18 @@ provider "kubernetes" {
   cluster_ca_certificate = length(tls_self_signed_cert.k3s_ca) > 0 ? tls_self_signed_cert.k3s_ca[0].cert_pem : ""
 }
 
+# Create Kubernetes namespace for GitLab first
+resource "kubernetes_namespace" "gitlab" {
+  count = var.enable_gitlab ? 1 : 0
+  provider = kubernetes.gitlab_k3s
+
+  metadata {
+    name = "gitlab"
+  }
+
+  depends_on = [null_resource.wait_for_k3s]
+}
+
 # Create Kubernetes secret for GitLab initial root password
 resource "kubernetes_secret" "gitlab_initial_root_password" {
   count = var.enable_gitlab && var.gitlab_root_password != null ? 1 : 0
@@ -340,7 +352,7 @@ resource "kubernetes_secret" "gitlab_initial_root_password" {
 
   metadata {
     name      = "gitlab-initial-root-password"
-    namespace = "gitlab"
+    namespace = kubernetes_namespace.gitlab[0].metadata[0].name
   }
 
   data = {
@@ -349,7 +361,7 @@ resource "kubernetes_secret" "gitlab_initial_root_password" {
 
   type = "Opaque"
   
-  depends_on = [null_resource.wait_for_k3s]
+  depends_on = [kubernetes_namespace.gitlab]
 }
 
 # GitLab Helm Release on the dedicated K3s instance
@@ -360,11 +372,10 @@ resource "helm_release" "gitlab_ce" {
   repository       = "https://charts.gitlab.io/"
   chart            = "gitlab"
   version          = "9.8.4"
-  namespace        = "gitlab"
-  create_namespace = true
+  namespace        = kubernetes_namespace.gitlab[0].metadata[0].name
+  create_namespace = false
   timeout          = 900
   render_subchart_notes = true
-  upgrade_install       = true
   wait                  = true
   atomic                = false
   dependency_update     = false
@@ -372,7 +383,6 @@ resource "helm_release" "gitlab_ce" {
   recreate_pods         = false
   replace               = false
   skip_crds             = false
-  take_ownership        = false
   reset_values          = false
   disable_webhooks      = false
   reuse_values          = false
