@@ -1,0 +1,147 @@
+global:
+  edition: ce
+  kas:
+    enabled: false
+  hosts:
+    domain: ${domain}
+    gitlab:
+      name: gitlab.${domain}
+    registry:
+      name: registry.${domain}
+  ingress:
+    configureCertmanager: true
+    tls:
+      enabled: true
+  ## Initial root password for this GitLab installation
+  ## Using auto-generated secret as per GitLab charts best practices
+  ## https://docs.gitlab.com/charts/installation/secrets#initial-root-password
+  initialRootPassword:
+    secret: gitlab-initial-root-password
+    key: password
+  # Enable MinIO for object storage (simplest for self-hosted)
+  minio:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+    persistence:
+      size: 10Gi
+
+  # Remove explicit appConfig to let chart auto-configure MinIO
+
+
+# Configure cert-manager issuer
+certmanager-issuer:
+  email: ${letsencrypt_email}
+
+# Keep nginx-ingress enabled (we disabled Traefik in K3s)
+nginx-ingress:
+  enabled: true
+  controller:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# Disable GitLab Runner (broken, not essential)
+gitlab-runner:
+  install: false
+
+# Disable KAS (Kubernetes Agent Server - only needed for external K8s)
+kas:
+  enabled: false
+
+
+
+# Disable Prometheus (monitoring not essential)
+prometheus:
+  install: false
+
+# Disable GitLab Exporter (metrics)
+gitlab-exporter:
+  enabled: false
+
+# Keep Registry but minimal
+registry:
+  enabled: true
+  hpa:
+    minReplicas: 1
+    maxReplicas: 1
+
+# Core GitLab components - minimal replicas and resources
+gitlab:
+  webservice:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 800Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+  sidekiq:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 600Mi
+      limits:
+        cpu: 500m
+        memory: 1.5Gi
+  toolbox:
+    enabled: true
+  migrations:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 200Mi
+      limits:
+        cpu: 500m
+        memory: 1024Mi
+
+# Gitaly - Git storage (essential)
+gitaly:
+  enabled: true
+  persistence:
+    size: 50Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 200Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# PostgreSQL (essential)
+postgresql:
+  persistence:
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# Redis (essential)
+redis:
+  install: true
+  master:
+    persistence:
+      size: 2Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi

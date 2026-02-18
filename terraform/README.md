@@ -12,7 +12,6 @@ Set all required environment variables and run:
 export TF_VAR_hcloud_token="your-hcloud-token"
 export TF_VAR_letsencrypt_email="admin@your-domain.com"
 export TF_VAR_cloudflare_api_token="your-cloudflare-token"
-export TF_VAR_domain_name="your-domain.com"
 
 # Deploy
 cd terraform
@@ -27,7 +26,6 @@ tofu apply
 | `hcloud_token` | `TF_VAR_hcloud_token` | Hetzner Cloud API token | ✅ |
 | `letsencrypt_email` | `TF_VAR_letsencrypt_email` | Email for Let's Encrypt notifications | ❌ |
 | `cloudflare_api_token` | `TF_VAR_cloudflare_api_token` | Cloudflare API token for DNS-01 challenges | ✅ |
-| `domain_name` | `TF_VAR_domain_name` | Base domain (e.g., "acme.com") | ❌ |
 
 ## Repository Structure
 

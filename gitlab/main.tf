@@ -88,14 +88,23 @@ module "gitlab_server" {
 }
 
 provider "kubernetes" {
-  config_path = "${path.module}/kubeconfig"
+  alias                  = "gitlab_k3s"
+  host                   = var.enable_gitlab ? "https://${module.gitlab_server.server_ipv4}:6443" : null
+  client_certificate     = module.gitlab_server.k3s_admin_cert
+  client_key             = module.gitlab_server.k3s_admin_key
+  cluster_ca_certificate = module.gitlab_server.k3s_ca_cert
 }
 
 provider "helm" {
+  alias = "gitlab_k3s"
   kubernetes = {
-    config_path = "${path.module}/kubeconfig"
+    host                   = var.enable_gitlab ? "https://${module.gitlab_server.server_ipv4}:6443" : null
+    client_certificate     = module.gitlab_server.k3s_admin_cert
+    client_key             = module.gitlab_server.k3s_admin_key
+    cluster_ca_certificate = module.gitlab_server.k3s_ca_cert
   }
 }
+
 
 # Outputs for GitLab
 output "gitlab_url" {
@@ -153,4 +162,24 @@ output "gitlab_k3s_ca_cert" {
   description = "K3s cluster CA certificate for GitLab node"
   value       = module.gitlab_server.k3s_ca_cert
   sensitive   = true
+}
+
+
+module "gitlab_deploy" {
+  source        = "./modules/gitlab-deploy"
+  enable_gitlab = var.enable_gitlab
+
+  domains           = var.domains
+  letsencrypt_email = var.letsencrypt_email
+
+  # Pass GitLab credentials (generated if not provided)
+  gitlab_root_password      = var.gitlab_root_password != null ? var.gitlab_root_password : (var.enable_gitlab ? random_password.gitlab_root_password[0].result : null)
+  runner_registration_token = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : null
+
+  providers = {
+    kubernetes = kubernetes.gitlab_k3s
+    helm       = helm.gitlab_k3s
+  }
+
+  depends_on = [module.gitlab_server]
 }
