@@ -26,12 +26,6 @@ variable "domains" {
   }
 }
 
-variable "enable_gitlab" {
-  type        = bool
-  description = "Enable GitLab CE deployment on dedicated Hetzner server"
-  default     = true
-}
-
 variable "gitlab_server_type" {
   type        = string
   description = "Hetzner server type for GitLab (minimum CX33 recommended)"

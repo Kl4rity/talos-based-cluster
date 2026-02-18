@@ -9,12 +9,6 @@ variable "domains" {
   description = "List of domains for the cluster"
 }
 
-variable "enable_gitlab" {
-  type        = bool
-  description = "Enable GitLab CE deployment"
-  default     = true
-}
-
 variable "server_type" {
   type        = string
   description = "Hetzner server type"

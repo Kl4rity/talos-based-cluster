@@ -40,7 +40,7 @@ provider "cloudflare" {
 
 # Generate secure GitLab root password if not provided
 resource "random_password" "gitlab_root_password" {
-  count = var.enable_gitlab && var.gitlab_root_password == null ? 1 : 0
+  count = var.gitlab_root_password == null ? 1 : 0
 
   length           = 32
   special          = true
@@ -53,7 +53,7 @@ resource "random_password" "gitlab_root_password" {
 
 # Generate secure server root password if not provided
 resource "random_password" "gitlab_server_root_password" {
-  count = var.enable_gitlab && var.gitlab_server_root_password == null ? 1 : 0
+  count = var.gitlab_server_root_password == null ? 1 : 0
 
   length           = 32
   special          = true
@@ -66,44 +66,24 @@ resource "random_password" "gitlab_server_root_password" {
 
 # Generate secure GitLab runner registration token
 resource "random_password" "gitlab_runner_registration_token" {
-  count = var.enable_gitlab ? 1 : 0
-
   length  = 32
   special = false
 }
 
 module "gitlab_server" {
   source                    = "./modules/gitlab-server"
-  enable_gitlab             = var.enable_gitlab
   hcloud_token              = var.hcloud_token
   domains                   = var.domains
   server_type               = var.gitlab_server_type
   location                  = var.gitlab_server_location
   volume_size               = var.gitlab_volume_size
-  gitlab_root_password      = var.gitlab_root_password != null ? var.gitlab_root_password : (var.enable_gitlab ? random_password.gitlab_root_password[0].result : "")
-  root_password             = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : (var.enable_gitlab ? random_password.gitlab_server_root_password[0].result : "")
+  gitlab_root_password      = var.gitlab_root_password != null ? var.gitlab_root_password : random_password.gitlab_root_password[0].result
+  root_password             = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : random_password.gitlab_server_root_password[0].result
   letsencrypt_email         = var.letsencrypt_email
-  runner_registration_token = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : ""
+  runner_registration_token = random_password.gitlab_runner_registration_token.result
   gitlab_image_tag          = var.gitlab_image_tag
 }
 
-provider "kubernetes" {
-  alias                  = "gitlab_k3s"
-  host                   = var.enable_gitlab ? "https://${module.gitlab_server.server_ipv4}:6443" : null
-  client_certificate     = module.gitlab_server.k3s_admin_cert
-  client_key             = module.gitlab_server.k3s_admin_key
-  cluster_ca_certificate = module.gitlab_server.k3s_ca_cert
-}
-
-provider "helm" {
-  alias = "gitlab_k3s"
-  kubernetes = {
-    host                   = var.enable_gitlab ? "https://${module.gitlab_server.server_ipv4}:6443" : null
-    client_certificate     = module.gitlab_server.k3s_admin_cert
-    client_key             = module.gitlab_server.k3s_admin_key
-    cluster_ca_certificate = module.gitlab_server.k3s_ca_cert
-  }
-}
 
 
 # Outputs for GitLab
@@ -124,19 +104,19 @@ output "gitlab_server_ip" {
 
 output "gitlab_root_password" {
   description = "GitLab root password (if auto-generated)"
-  value       = var.enable_gitlab && var.gitlab_root_password == null ? random_password.gitlab_root_password[0].result : "User provided - check your secrets"
+  value       = var.gitlab_root_password == null ? random_password.gitlab_root_password[0].result : "User provided - check your secrets"
   sensitive   = true
 }
 
 output "gitlab_server_root_password" {
   description = "GitLab server root password for console access (if auto-generated)"
-  value       = var.enable_gitlab && var.gitlab_server_root_password == null ? random_password.gitlab_server_root_password[0].result : "User provided - check your secrets"
+  value       = var.gitlab_server_root_password == null ? random_password.gitlab_server_root_password[0].result : "User provided - check your secrets"
   sensitive   = true
 }
 
 output "gitlab_runner_registration_token" {
   description = "GitLab runner registration token"
-  value       = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : null
+  value       = random_password.gitlab_runner_registration_token.result
   sensitive   = true
 }
 
@@ -167,19 +147,17 @@ output "gitlab_k3s_ca_cert" {
 
 module "gitlab_deploy" {
   source        = "./modules/gitlab-deploy"
-  enable_gitlab = var.enable_gitlab
 
   domains           = var.domains
   letsencrypt_email = var.letsencrypt_email
 
   # Pass GitLab credentials (generated if not provided)
-  gitlab_root_password      = var.gitlab_root_password != null ? var.gitlab_root_password : (var.enable_gitlab ? random_password.gitlab_root_password[0].result : null)
-  runner_registration_token = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : null
+  gitlab_root_password      = var.gitlab_root_password != null ? var.gitlab_root_password : random_password.gitlab_root_password[0].result
+  runner_registration_token = random_password.gitlab_runner_registration_token.result
 
-  providers = {
-    kubernetes = kubernetes.gitlab_k3s
-    helm       = helm.gitlab_k3s
-  }
-
-  depends_on = [module.gitlab_server]
+  # K3s cluster connectivity from the server module
+  kube_host                   = "https://${module.gitlab_server.server_ipv4}:6443"
+  kube_client_certificate     = module.gitlab_server.k3s_admin_cert
+  kube_client_key             = module.gitlab_server.k3s_admin_key
+  kube_cluster_ca_certificate = module.gitlab_server.k3s_ca_cert
 }

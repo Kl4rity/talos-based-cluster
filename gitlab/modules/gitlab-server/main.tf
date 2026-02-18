@@ -38,7 +38,6 @@ locals {
 
 # Hetzner Volume for GitLab data
 resource "hcloud_volume" "gitlab_data" {
-  count    = var.enable_gitlab ? 1 : 0
   name     = "gitlab-data"
   size     = var.volume_size
   location = var.location
@@ -51,7 +50,6 @@ resource "hcloud_volume" "gitlab_data" {
 
 # Cloud-init configuration for GitLab installation
 data "cloudinit_config" "gitlab" {
-  count         = var.enable_gitlab ? 1 : 0
   gzip          = false
   base64_encode = false
 
@@ -65,37 +63,33 @@ data "cloudinit_config" "gitlab" {
       root_password             = var.root_password
       letsencrypt_email         = var.letsencrypt_email
       runner_registration_token = var.runner_registration_token
-      volume_id                 = hcloud_volume.gitlab_data[0].id
+      volume_id                 = hcloud_volume.gitlab_data.id
       gitlab_image_tag          = var.gitlab_image_tag
-      k3s_ca_cert               = tls_self_signed_cert.k3s_ca[0].cert_pem
-      k3s_ca_key                = tls_private_key.k3s_ca[0].private_key_pem
+      k3s_ca_cert               = tls_self_signed_cert.k3s_ca.cert_pem
+      k3s_ca_key                = tls_private_key.k3s_ca.private_key_pem
     })
   }
 }
 
 # Generate a custom CA for the GitLab K3s node
 resource "tls_private_key" "k3s_ca" {
-  count     = var.enable_gitlab ? 1 : 0
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
 # Generate SSH key for debugging
 resource "tls_private_key" "debug_ssh" {
-  count     = var.enable_gitlab ? 1 : 0
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
 resource "hcloud_ssh_key" "debug" {
-  count      = var.enable_gitlab ? 1 : 0
   name       = "gitlab-debug-key"
-  public_key = tls_private_key.debug_ssh[0].public_key_openssh
+  public_key = tls_private_key.debug_ssh.public_key_openssh
 }
 
 resource "tls_self_signed_cert" "k3s_ca" {
-  count           = var.enable_gitlab ? 1 : 0
-  private_key_pem = tls_private_key.k3s_ca[0].private_key_pem
+  private_key_pem = tls_private_key.k3s_ca.private_key_pem
 
   subject {
     common_name  = "k3s-ca"
@@ -114,14 +108,12 @@ resource "tls_self_signed_cert" "k3s_ca" {
 
 # Generate admin client certificate for K3s
 resource "tls_private_key" "k3s_admin" {
-  count     = var.enable_gitlab ? 1 : 0
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
 resource "tls_cert_request" "k3s_admin" {
-  count           = var.enable_gitlab ? 1 : 0
-  private_key_pem = tls_private_key.k3s_admin[0].private_key_pem
+  private_key_pem = tls_private_key.k3s_admin.private_key_pem
 
   subject {
     common_name  = "admin"
@@ -130,10 +122,9 @@ resource "tls_cert_request" "k3s_admin" {
 }
 
 resource "tls_locally_signed_cert" "k3s_admin" {
-  count              = var.enable_gitlab ? 1 : 0
-  cert_request_pem   = tls_cert_request.k3s_admin[0].cert_request_pem
-  ca_private_key_pem = tls_private_key.k3s_ca[0].private_key_pem
-  ca_cert_pem        = tls_self_signed_cert.k3s_ca[0].cert_pem
+  cert_request_pem   = tls_cert_request.k3s_admin.cert_request_pem
+  ca_private_key_pem = tls_private_key.k3s_ca.private_key_pem
+  ca_cert_pem        = tls_self_signed_cert.k3s_ca.cert_pem
 
   validity_period_hours = 87600 # 10 years
 
@@ -146,15 +137,14 @@ resource "tls_locally_signed_cert" "k3s_admin" {
 
 # GitLab server
 resource "hcloud_server" "gitlab" {
-  count       = var.enable_gitlab ? 1 : 0
   name        = "gitlab-${local.primary_domain}"
   server_type = var.server_type
   location    = var.location
   image       = "ubuntu-24.04"
 
-  user_data = data.cloudinit_config.gitlab[0].rendered
+  user_data = data.cloudinit_config.gitlab.rendered
 
-  ssh_keys = var.enable_gitlab ? [hcloud_ssh_key.debug[0].id] : []
+  ssh_keys = [hcloud_ssh_key.debug.id]
 
   labels = {
     service = "gitlab"
@@ -168,15 +158,13 @@ resource "hcloud_server" "gitlab" {
 
 # Attach volume to GitLab server
 resource "hcloud_volume_attachment" "gitlab_data" {
-  count     = var.enable_gitlab ? 1 : 0
-  volume_id = hcloud_volume.gitlab_data[0].id
-  server_id = hcloud_server.gitlab[0].id
+  volume_id = hcloud_volume.gitlab_data.id
+  server_id = hcloud_server.gitlab.id
   automount = false # We'll mount it manually to /var/opt/gitlab
 }
 
 # Firewall for GitLab server - SSH disabled for security
 resource "hcloud_firewall" "gitlab" {
-  count = var.enable_gitlab ? 1 : 0
   name  = "gitlab-firewall"
 
   rule {
@@ -240,24 +228,23 @@ resource "hcloud_firewall" "gitlab" {
 }
 
 resource "hcloud_firewall_attachment" "gitlab" {
-  count       = var.enable_gitlab ? 1 : 0
-  firewall_id = hcloud_firewall.gitlab[0].id
-  server_ids  = [hcloud_server.gitlab[0].id]
+  firewall_id = hcloud_firewall.gitlab.id
+  server_ids  = [hcloud_server.gitlab.id]
 }
 
 # Get Cloudflare zone IDs for each domain
 data "cloudflare_zone" "domains" {
-  for_each = var.enable_gitlab ? toset(var.domains) : []
+  for_each = toset(var.domains)
   name     = each.value
 }
 
 # Create A records for gitlab.{domain}
 resource "cloudflare_record" "gitlab" {
-  for_each = var.enable_gitlab ? toset(var.domains) : []
+  for_each = toset(var.domains)
 
   zone_id = data.cloudflare_zone.domains[each.value].id
   name    = "gitlab"
-  content = hcloud_server.gitlab[0].ipv4_address
+  content = hcloud_server.gitlab.ipv4_address
   type    = "A"
   ttl     = 300
   proxied = false
@@ -267,11 +254,11 @@ resource "cloudflare_record" "gitlab" {
 
 # Create A records for registry.{domain}
 resource "cloudflare_record" "registry" {
-  for_each = var.enable_gitlab ? toset(var.domains) : []
+  for_each = toset(var.domains)
 
   zone_id = data.cloudflare_zone.domains[each.value].id
   name    = "registry"
-  content = hcloud_server.gitlab[0].ipv4_address
+  content = hcloud_server.gitlab.ipv4_address
   type    = "A"
   ttl     = 300
   proxied = false
@@ -281,11 +268,11 @@ resource "cloudflare_record" "registry" {
 
 # Create A records for minio.{domain}
 resource "cloudflare_record" "minio" {
-  for_each = var.enable_gitlab ? toset(var.domains) : []
+  for_each = toset(var.domains)
 
   zone_id = data.cloudflare_zone.domains[each.value].id
   name    = "minio"
-  content = hcloud_server.gitlab[0].ipv4_address
+  content = hcloud_server.gitlab.ipv4_address
   type    = "A"
   ttl     = 300
   proxied = false
@@ -295,14 +282,12 @@ resource "cloudflare_record" "minio" {
 
 # Wait for K3s API to be ready
 resource "null_resource" "wait_for_k3s" {
-  count = var.enable_gitlab ? 1 : 0
-
   provisioner "local-exec" {
     command = <<EOT
       TIMEOUT=600
       ELAPSED=0
-      until curl -k -s -o /dev/null -w "%%{http_code}" https://${hcloud_server.gitlab[0].ipv4_address}:6443/livez | grep -q "200"; do
-        echo "Waiting for K3s API at ${hcloud_server.gitlab[0].ipv4_address}:6443... ($ELAPSED/$TIMEOUT)"
+      until curl -k -s -o /dev/null -w "%%{http_code}" https://${hcloud_server.gitlab.ipv4_address}:6443/livez | grep -q "200"; do
+        echo "Waiting for K3s API at ${hcloud_server.gitlab.ipv4_address}:6443... ($ELAPSED/$TIMEOUT)"
         sleep 10
         ELAPSED=$((ELAPSED + 10))
         if [ $ELAPSED -ge $TIMEOUT ]; then
@@ -317,7 +302,7 @@ resource "null_resource" "wait_for_k3s" {
       RETRY_COUNT=0
       
       until $API_READY || [ $RETRY_COUNT -ge $MAX_RETRIES ]; do
-        if curl -k -s https://${hcloud_server.gitlab[0].ipv4_address}:6443/version | grep -q ""major\":\"\"\\\\n\"minor\""; then
+        if curl -k -s https://${hcloud_server.gitlab.ipv4_address}:6443/version | grep -q ""major\":\"\"\\\\n\"minor\""; then
           API_READY=true
         else
           echo "API not fully ready, retrying... ($RETRY_COUNT/$MAX_RETRIES)"

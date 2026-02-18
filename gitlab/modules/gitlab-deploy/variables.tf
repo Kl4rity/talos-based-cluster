@@ -28,6 +28,29 @@ variable "runner_registration_token" {
   default     = null
 }
 
+variable "kube_host" {
+  type        = string
+  description = "Kubernetes API server URL for the dedicated GitLab K3s cluster"
+}
+
+variable "kube_client_certificate" {
+  type        = string
+  description = "PEM-encoded client certificate for Kubernetes auth"
+  sensitive   = true
+}
+
+variable "kube_client_key" {
+  type        = string
+  description = "PEM-encoded client key for Kubernetes auth"
+  sensitive   = true
+}
+
+variable "kube_cluster_ca_certificate" {
+  type        = string
+  description = "PEM-encoded cluster CA certificate for Kubernetes"
+  sensitive   = true
+}
+
 variable "gitlab_chart_version" {
   type        = string
   description = "GitLab Helm chart version"
