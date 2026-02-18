@@ -34,6 +34,7 @@ module "kubernetes" {
 
   cert_manager_enabled           = true
   cilium_gateway_api_enabled     = true
+  gateway_api_crds_enabled       = true
   ingress_nginx_enabled          = false
   longhorn_enabled               = true
   longhorn_default_storage_class = true

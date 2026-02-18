@@ -111,6 +111,10 @@ resource "kubernetes_manifest" "cilium_gateway" {
     metadata = {
       name      = "cilium-gateway"
       namespace = "default"
+      labels = {
+        "external-dns.alpha.kubernetes.io/enabled" = "true"
+        "external-dns.alpha.kubernetes.io/owner"  = "default"
+      }
     }
     spec = {
       gatewayClassName = "cilium"
@@ -199,7 +203,7 @@ resource "helm_release" "external_dns" {
   repository = "https://kubernetes-sigs.github.io/external-dns/"
   chart      = "external-dns"
   namespace  = "kube-system"
-  version    = "1.14.3"
+  version    = "1.20.0"
 
   values = [
     yamlencode({
@@ -217,11 +221,13 @@ resource "helm_release" "external_dns" {
         "ingress"
       ]
       extraArgs = [
-        "--metrics-address=:7979"
+        "--metrics-address=:7979",
+        "--gateway-namespace=*"  # Watch all namespaces for HTTPRoutes
       ]
       serviceMonitor = {
         enabled = true
       }
+      logLevel  = "debug"
     })
   ]
 }
@@ -261,12 +267,12 @@ resource "helm_release" "prometheus_stack" {
   values = [
     yamlencode({
       grafana = {
-        enabled = true
+        enabled       = true
         adminPassword = var.grafana_admin_password != null ? var.grafana_admin_password : random_password.grafana_admin_password[0].result
         "grafana.ini" = {
           server = {
-            domain = "grafana.${local.primary_domain}"
-            root_url = "https://grafana.${local.primary_domain}"
+            domain              = "grafana.${local.primary_domain}"
+            root_url            = "https://grafana.${local.primary_domain}"
             serve_from_sub_path = false
           }
         }
@@ -294,15 +300,15 @@ resource "helm_release" "prometheus_stack" {
             url    = "http://tempo.tracing.svc.${local.primary_domain}:3100"
             access = "proxy"
             jsonData = {
-              httpMethod    = "GET"
-              serviceMap    = { datasourceUid = "prometheus" }
-              nodeGraph     = { enabled = true }
-              lokiSearch    = { datasourceUid = "loki" }
+              httpMethod = "GET"
+              serviceMap = { datasourceUid = "prometheus" }
+              nodeGraph = { enabled = true }
+              lokiSearch = { datasourceUid = "loki" }
               tracesToLogsV2 = {
                 datasourceUid      = "loki"
                 spanStartTimeShift = "1h"
                 spanEndTimeShift   = "1h"
-                tags               = ["job", "instance", "pod", "namespace"]
+                tags = ["job", "instance", "pod", "namespace"]
                 filterByTraceID    = true
                 filterBySpanID     = false
               }
@@ -314,7 +320,7 @@ resource "helm_release" "prometheus_stack" {
         prometheusSpec = {
           serviceMonitorSelectorNilUsesHelmValues = false
           podMonitorSelectorNilUsesHelmValues     = false
-          retention = "10d"
+          retention                               = "10d"
           storageSpec = {
             volumeClaimTemplate = {
               spec = {
@@ -338,10 +344,14 @@ resource "kubernetes_manifest" "grafana_httproute" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "HTTPRoute"
-    metadata = {
-      name      = "grafana"
-      namespace = "monitoring"
+  metadata = {
+    name      = "grafana"
+    namespace = "monitoring"
+    labels = {
+      "external-dns.alpha.kubernetes.io/enabled" = "true"
+      "external-dns.alpha.kubernetes.io/owner"  = "default"
     }
+  }
     spec = {
       parentRefs = [
         {
@@ -447,7 +457,6 @@ resource "helm_release" "loki_stack" {
   ]
 }
 
-# Tracing: Tempo
 resource "kubernetes_namespace" "tracing" {
   metadata {
     name = "tracing"
@@ -457,6 +466,7 @@ resource "kubernetes_namespace" "tracing" {
   }
 }
 
+# Tracing: Tempo
 resource "helm_release" "tempo" {
   name             = "tempo"
   repository       = "https://grafana.github.io/helm-charts"
@@ -491,5 +501,28 @@ resource "helm_release" "tempo" {
       }
     })
   ]
+}
+
+# ClusterRoleBinding for ExternalDNS
+resource "kubernetes_manifest" "external_dns_cluster_role_binding" {
+  manifest = {
+    "apiVersion" = "rbac.authorization.k8s.io/v1"
+    "kind"       = "ClusterRoleBinding"
+    "metadata" = {
+      "name" = "external-dns"
+    }
+    "roleRef" = {
+      "apiGroup" = "rbac.authorization.k8s.io"
+      "kind"     = "ClusterRole"
+      "name"     = "external-dns"
+    }
+    "subjects" = [
+      {
+        "kind"      = "ServiceAccount"
+        "name"      = "external-dns"
+        "namespace" = "kube-system"
+      }
+    ]
+  }
 }
 
