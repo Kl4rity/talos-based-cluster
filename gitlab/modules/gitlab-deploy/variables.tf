@@ -1,8 +1,3 @@
-variable "enable_gitlab" {
-  type        = bool
-  description = "Enable GitLab CE deployment"
-  default     = true
-}
 
 variable "domains" {
   type        = list(string)
