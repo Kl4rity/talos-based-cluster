@@ -23,6 +23,10 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+    external = {
+      source  = "hashicorp/external"
+      version = "~> 2.3"
+    }
   }
 }
 
@@ -295,33 +299,85 @@ resource "null_resource" "wait_for_k3s" {
 
   provisioner "local-exec" {
     command = <<EOT
-      TIMEOUT=300
+      TIMEOUT=600
       ELAPSED=0
-      until curl -k -s https://${hcloud_server.gitlab[0].ipv4_address}:6443/livez > /dev/null || [ $ELAPSED -ge $TIMEOUT ]; do
+      until curl -k -s -o /dev/null -w "%%{http_code}" https://${hcloud_server.gitlab[0].ipv4_address}:6443/livez | grep -q "200"; do
         echo "Waiting for K3s API at ${hcloud_server.gitlab[0].ipv4_address}:6443... ($ELAPSED/$TIMEOUT)"
         sleep 10
         ELAPSED=$((ELAPSED + 10))
+        if [ $ELAPSED -ge $TIMEOUT ]; then
+          echo "Timeout waiting for K3s API"
+          exit 1
+        fi
       done
-      if [ $ELAPSED -ge $TIMEOUT ]; then
-        echo "Timeout waiting for K3s API"
+      
+      # Additional check to verify the API is fully functional
+      API_READY=false
+      MAX_RETRIES=10
+      RETRY_COUNT=0
+      
+      until $API_READY || [ $RETRY_COUNT -ge $MAX_RETRIES ]; do
+        if curl -k -s https://${hcloud_server.gitlab[0].ipv4_address}:6443/version | grep -q ""major\":\"\"\\\\n\"minor\""; then
+          API_READY=true
+        else
+          echo "API not fully ready, retrying... ($RETRY_COUNT/$MAX_RETRIES)"
+          sleep 10
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+        fi
+      done
+      
+      if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+        echo "API never became fully ready"
         exit 1
       fi
-      echo "K3s API is reachable!"
+      
+      echo "K3s API is ready and fully functional!"
     EOT
   }
 
-  depends_on = [hcloud_server.gitlab, cloudflare_record.gitlab]
+  depends_on = [hcloud_server.gitlab, cloudflare_record.gitlab, hcloud_volume_attachment.gitlab_data]
+
+
+# Data source to fetch K3s cluster configuration after it's ready
+data "external" "k3s_config" {
+  count = var.enable_gitlab ? 1 : 0
+
+  program = ["bash", "-c", <<EOT
+    cat <<EOF
+    {
+      "host": "https://${hcloud_server.gitlab[0].ipv4_address}:6443",
+      "client_certificate": "${base64encode(tls_locally_signed_cert.k3s_admin[0].cert_pem)}",
+      "client_key": "${base64encode(tls_private_key.k3s_admin[0].private_key_pem)}",
+      "cluster_ca_certificate": "${base64encode(tls_self_signed_cert.k3s_ca[0].cert_pem)}"
+    }
+    EOF
+  EOT
+  ]
+
+  depends_on = [null_resource.wait_for_k3s]
 }
 
 # Provider for the dedicated GitLab K3s instance
 provider "helm" {
   alias = "gitlab_k3s"
-  kubernetes = {
-    host                   = length(hcloud_server.gitlab) > 0 ? "https://${hcloud_server.gitlab[0].ipv4_address}:6443" : ""
-    client_certificate     = length(tls_locally_signed_cert.k3s_admin) > 0 ? tls_locally_signed_cert.k3s_admin[0].cert_pem : ""
-    client_key             = length(tls_private_key.k3s_admin) > 0 ? tls_private_key.k3s_admin[0].private_key_pem : ""
-    cluster_ca_certificate = length(tls_self_signed_cert.k3s_ca) > 0 ? tls_self_signed_cert.k3s_ca[0].cert_pem : ""
+
+  kubernetes {
+    host                   = var.enable_gitlab ? jsondecode(data.external.k3s_config[0].result["output"])["host"] : ""
+    client_certificate     = var.enable_gitlab ? base64decode(jsondecode(data.external.k3s_config[0].result["output"])["client_certificate"]) : ""
+    client_key             = var.enable_gitlab ? base64decode(jsondecode(data.external.k3s_config[0].result["output"])["client_key"]) : ""
+    cluster_ca_certificate = var.enable_gitlab ? base64decode(jsondecode(data.external.k3s_config[0].result["output"])["cluster_ca_certificate"]) : ""
   }
+}
+
+# Kubernetes provider for the dedicated GitLab K3s instance
+provider "kubernetes" {
+  alias = "gitlab_k3s"
+
+  host                   = var.enable_gitlab ? jsondecode(data.external.k3s_config[0].result["output"])["host"] : ""
+  client_certificate     = var.enable_gitlab ? base64decode(jsondecode(data.external.k3s_config[0].result["output"])["client_certificate"]) : ""
+  client_key             = var.enable_gitlab ? base64decode(jsondecode(data.external.k3s_config[0].result["output"])["client_key"]) : ""
+  cluster_ca_certificate = var.enable_gitlab ? base64decode(jsondecode(data.external.k3s_config[0].result["output"])["cluster_ca_certificate"]) : ""
+}
 }
 
 # Kubernetes provider for the dedicated GitLab K3s instance

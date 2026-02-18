@@ -80,24 +80,18 @@ resource "random_password" "gitlab_runner_registration_token" {
 }
 
 module "gitlab_server" {
-  source               = "./modules/gitlab-server"
-  enable_gitlab        = var.enable_gitlab
-  hcloud_token         = var.hcloud_token
-  domains              = var.domains
-  server_type          = var.gitlab_server_type
-  location             = var.gitlab_server_location
-  volume_size          = var.gitlab_volume_size
-  gitlab_root_password = var.gitlab_root_password != null ? var.gitlab_root_password : (var.enable_gitlab ? random_password.gitlab_root_password[0].result : "")
+  source                    = "./modules/gitlab-server"
+  enable_gitlab             = var.enable_gitlab
+  hcloud_token              = var.hcloud_token
+  domains                   = var.domains
+  server_type               = var.gitlab_server_type
+  location                  = var.gitlab_server_location
+  volume_size               = var.gitlab_volume_size
+  gitlab_root_password      = var.gitlab_root_password != null ? var.gitlab_root_password : (var.enable_gitlab ? random_password.gitlab_root_password[0].result : "")
   root_password             = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : (var.enable_gitlab ? random_password.gitlab_server_root_password[0].result : "")
   letsencrypt_email         = var.letsencrypt_email
   runner_registration_token = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : ""
   gitlab_image_tag          = var.gitlab_image_tag
-
-  providers = {
-    cloudflare = cloudflare
-    kubernetes = kubernetes
-    helm       = helm
-  }
 }
 
 module "platform_resources" {
