@@ -79,21 +79,6 @@ resource "random_password" "gitlab_runner_registration_token" {
   special = false
 }
 
-module "gitlab_server" {
-  source                    = "./modules/gitlab-server"
-  enable_gitlab             = var.enable_gitlab
-  hcloud_token              = var.hcloud_token
-  domains                   = var.domains
-  server_type               = var.gitlab_server_type
-  location                  = var.gitlab_server_location
-  volume_size               = var.gitlab_volume_size
-  gitlab_root_password      = var.gitlab_root_password != null ? var.gitlab_root_password : (var.enable_gitlab ? random_password.gitlab_root_password[0].result : "")
-  root_password             = var.gitlab_server_root_password != null ? var.gitlab_server_root_password : (var.enable_gitlab ? random_password.gitlab_server_root_password[0].result : "")
-  letsencrypt_email         = var.letsencrypt_email
-  runner_registration_token = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : ""
-  gitlab_image_tag          = var.gitlab_image_tag
-}
-
 module "platform_resources" {
   source                 = "./modules/platform-resources"
   letsencrypt_email      = var.letsencrypt_email
@@ -116,62 +101,4 @@ provider "helm" {
   kubernetes = {
     config_path = "${path.module}/kubeconfig"
   }
-}
-
-# Outputs for GitLab
-output "gitlab_url" {
-  description = "GitLab web interface URL"
-  value       = module.gitlab_server.gitlab_url
-}
-
-output "gitlab_registry_url" {
-  description = "GitLab container registry URL"
-  value       = module.gitlab_server.registry_url
-}
-
-output "gitlab_server_ip" {
-  description = "GitLab server IP address"
-  value       = module.gitlab_server.server_ipv4
-}
-
-output "gitlab_root_password" {
-  description = "GitLab root password (if auto-generated)"
-  value       = var.enable_gitlab && var.gitlab_root_password == null ? random_password.gitlab_root_password[0].result : "User provided - check your secrets"
-  sensitive   = true
-}
-
-output "gitlab_server_root_password" {
-  description = "GitLab server root password for console access (if auto-generated)"
-  value       = var.enable_gitlab && var.gitlab_server_root_password == null ? random_password.gitlab_server_root_password[0].result : "User provided - check your secrets"
-  sensitive   = true
-}
-
-output "gitlab_runner_registration_token" {
-  description = "GitLab runner registration token"
-  value       = var.enable_gitlab ? random_password.gitlab_runner_registration_token[0].result : null
-  sensitive   = true
-}
-
-output "gitlab_debug_private_key" {
-  description = "SSH private key for debugging the GitLab server"
-  value       = module.gitlab_server.debug_ssh_private_key
-  sensitive   = true
-}
-
-output "gitlab_k3s_admin_cert" {
-  description = "K3s admin client certificate for GitLab node"
-  value       = module.gitlab_server.k3s_admin_cert
-  sensitive   = true
-}
-
-output "gitlab_k3s_admin_key" {
-  description = "K3s admin client key for GitLab node"
-  value       = module.gitlab_server.k3s_admin_key
-  sensitive   = true
-}
-
-output "gitlab_k3s_ca_cert" {
-  description = "K3s cluster CA certificate for GitLab node"
-  value       = module.gitlab_server.k3s_ca_cert
-  sensitive   = true
 }

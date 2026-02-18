@@ -50,7 +50,7 @@ module "kubernetes" {
   worker_nodepools = [
     {
       name     = "worker"
-      type     = "cx33"
+      type     = "cpx32"
       location = "nbg1"
       count    = 2
     }
