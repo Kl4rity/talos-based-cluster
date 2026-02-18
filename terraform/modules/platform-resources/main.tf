@@ -239,13 +239,23 @@ resource "random_password" "grafana_admin_password" {
   min_special      = 4
 }
 
+# Monitoring namespace with privileged PodSecurity
+resource "kubernetes_namespace" "monitoring" {
+  metadata {
+    name = "monitoring"
+    labels = {
+      "pod-security.kubernetes.io/enforce" = "privileged"
+    }
+  }
+}
+
 # Monitoring: Prometheus & Grafana
 resource "helm_release" "prometheus_stack" {
   name             = "kube-prometheus-stack"
   repository       = "https://prometheus-community.github.io/helm-charts"
   chart            = "kube-prometheus-stack"
-  namespace        = "monitoring"
-  create_namespace = true
+  namespace        = kubernetes_namespace.monitoring.metadata[0].name
+  create_namespace = false
   version          = "69.6.0"
 
   values = [
