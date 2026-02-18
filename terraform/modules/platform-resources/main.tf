@@ -111,7 +111,7 @@ resource "kubernetes_manifest" "cilium_gateway" {
     metadata = {
       name      = "cilium-gateway"
       namespace = "default"
-      labels = {
+      annotations = {
         "external-dns.alpha.kubernetes.io/enabled" = "true"
         "external-dns.alpha.kubernetes.io/owner"  = "default"
       }
@@ -222,7 +222,6 @@ resource "helm_release" "external_dns" {
       ]
       extraArgs = [
         "--metrics-address=:7979",
-        "--gateway-namespace=*"  # Watch all namespaces for HTTPRoutes
       ]
       serviceMonitor = {
         enabled = true
@@ -347,7 +346,7 @@ resource "kubernetes_manifest" "grafana_httproute" {
   metadata = {
     name      = "grafana"
     namespace = "monitoring"
-    labels = {
+    annotations = {
       "external-dns.alpha.kubernetes.io/enabled" = "true"
       "external-dns.alpha.kubernetes.io/owner"  = "default"
     }
