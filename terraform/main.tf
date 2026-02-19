@@ -45,40 +45,6 @@ module "workload_cluster" {
   cloudflare_api_token = var.cloudflare_api_token
 }
 
-# Generate secure GitLab root password if not provided
-resource "random_password" "gitlab_root_password" {
-  count = var.enable_gitlab && var.gitlab_root_password == null ? 1 : 0
-
-  length           = 32
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
-  min_lower        = 4
-  min_upper        = 4
-  min_numeric      = 4
-  min_special      = 4
-}
-
-# Generate secure server root password if not provided
-resource "random_password" "gitlab_server_root_password" {
-  count = var.enable_gitlab && var.gitlab_server_root_password == null ? 1 : 0
-
-  length           = 32
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
-  min_lower        = 4
-  min_upper        = 4
-  min_numeric      = 4
-  min_special      = 4
-}
-
-# Generate secure GitLab runner registration token
-resource "random_password" "gitlab_runner_registration_token" {
-  count = var.enable_gitlab ? 1 : 0
-
-  length  = 32
-  special = false
-}
-
 module "platform_resources" {
   source                 = "./modules/platform-resources"
   letsencrypt_email      = var.letsencrypt_email
