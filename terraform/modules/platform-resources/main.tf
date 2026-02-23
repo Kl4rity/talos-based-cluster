@@ -493,7 +493,10 @@ resource "helm_release" "tempo" {
         securityContext = {
           runAsUser  = 1001
           runAsGroup = 1001
-          fsGroup    = 1001
+        }
+        podSecurityContext = {
+          fsGroup             = 1001
+          fsGroupChangePolicy = "OnRootMismatch"
         }
       }
       persistence = {
