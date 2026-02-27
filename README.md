@@ -1,4 +1,4 @@
-# deliberate. Cloud on Hetzner Cloud
+# deliberate. Cloud on Hetzner
 
 A unified Terraform configuration for deploying an opinionated and complete Kubernetes cluster on Hetzner to get you started and retain flexibility and freedom.
 The goal is to give you something that works - instead of giving you a list of decisions to make.
