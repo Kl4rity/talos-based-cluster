@@ -223,7 +223,9 @@ resource "helm_release" "external_dns" {
       ]
       extraArgs = [
         "--metrics-address=:7979",
-        "--managed-record-types=A,CNAME",
+        "--managed-record-types=A,CNAME,TXT",
+        "--txt-prefix=a-",
+        "--txt-owner-id=default",
       ]
       serviceMonitor = {
         enabled = true
